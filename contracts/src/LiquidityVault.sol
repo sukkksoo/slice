@@ -13,6 +13,7 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {Currency} from "v4-core/types/Currency.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/types/PoolOperation.sol";
+import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {TransientStateLibrary} from "v4-core/libraries/TransientStateLibrary.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
@@ -67,6 +68,19 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
 
     /// @notice Hard ceiling on the protocol's cut of harvested fees (10%).
     uint16 public constant MAX_PROTOCOL_FEE_BPS = 1_000;
+
+    /// @notice Hook permissions that would let a pool's hook interfere with getting money out.
+    ///
+    /// @dev v4 encodes which callbacks a hook implements in the low bits of its address, so this
+    ///      can be checked once, cheaply, before a vault ever holds funds. A hook with any of these
+    ///      could revert a withdrawal or skim a delta off it — which on a vault that other people
+    ///      deposit into is a trap, not a fee. Hooks that only touch swaps or only gate *adding*
+    ///      liquidity are allowed: the worst those do is make deposits or fee conversion fail,
+    ///      which is a liveness annoyance rather than a way to strand somebody's principal.
+    uint160 internal constant EXIT_UNSAFE_HOOK_FLAGS = uint160(
+        Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG | Hooks.AFTER_REMOVE_LIQUIDITY_FLAG
+            | Hooks.AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG | Hooks.AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG
+    );
 
     /// @notice Hard ceiling on the entry fee (10%).
     /// @dev Bounded in the contract so the owner cannot raise it arbitrarily on people who are
@@ -199,6 +213,7 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     error ParameterOutOfRange();
     error NothingToCompound();
     error UnexpectedDebt();
+    error HookMayBlockExit(address hooks);
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -214,6 +229,11 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     ) ERC20(string.concat("Slice LP ", nameSuffix), string.concat("sLP-", nameSuffix)) {
         if (key.currency0.isAddressZero()) revert NativeCurrencyUnsupported();
         if (_owner == address(0) || _treasury == address(0)) revert ParameterOutOfRange();
+
+        // Refuse the pool outright if its hook could stand between a staker and their exit.
+        if (uint160(address(key.hooks)) & EXIT_UNSAFE_HOOK_FLAGS != 0) {
+            revert HookMayBlockExit(address(key.hooks));
+        }
 
         bool zeroIsUsdc = Currency.unwrap(key.currency0) == ArcChain.USDC_ERC20;
         bool oneIsUsdc = Currency.unwrap(key.currency1) == ArcChain.USDC_ERC20;

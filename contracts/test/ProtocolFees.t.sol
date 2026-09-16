@@ -147,6 +147,48 @@ contract ProtocolFeesTest is Test {
         assertGt(vault.collectProtocolFees(), 0, "accrued fees lost while the treasury was blocked");
     }
 
+    // --- hook safety ---
+
+    /// @notice A pool whose hook could intercept a withdrawal is refused outright.
+    ///
+    /// @dev v4 encodes a hook's callbacks in its address bits, so this is checkable before the
+    ///      vault ever holds anything. It matters because Slice is permissionless: anyone can point
+    ///      a vault at any USDC pool, including one whose hook reverts on remove-liquidity. Without
+    ///      this check a launchpad pool could accept deposits and never let them out.
+    function test_rejectsHooksThatCouldBlockExit() public {
+        // Low bits of the hook address are the permission bitmap. 1 << 9 is BEFORE_REMOVE_LIQUIDITY.
+        address blockingHook = address(uint160(0xAAAA0000) | uint160(1 << 9));
+
+        PoolKey memory bad = PoolKey({
+            currency0: Currency.wrap(ArcChain.USDC_ERC20),
+            currency1: Currency.wrap(TOKEN_ADDR),
+            fee: FEE,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(blockingHook)
+        });
+
+        vm.expectRevert(abi.encodeWithSelector(LiquidityVault.HookMayBlockExit.selector, blockingHook));
+        new LiquidityVault(manager, bad, owner, treasury, "BAD");
+    }
+
+    /// @notice A hook that only touches swaps is fine — it cannot strand anyone's principal.
+    /// @dev This is the common launchpad shape: a tax or fee split enforced in beforeSwap. It makes
+    ///      the vault's own fee conversion slightly worse, never unexitable, so it is allowed.
+    function test_allowsSwapOnlyHooks() public {
+        address swapHook = address(uint160(0xBBBB0000) | uint160(1 << 7)); // BEFORE_SWAP
+
+        PoolKey memory ok = PoolKey({
+            currency0: Currency.wrap(ArcChain.USDC_ERC20),
+            currency1: Currency.wrap(TOKEN_ADDR),
+            fee: FEE,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(swapHook)
+        });
+
+        LiquidityVault v = new LiquidityVault(manager, ok, owner, treasury, "OK");
+        assertEq(address(v.poolKey().hooks), swapHook, "swap-only hook should be accepted");
+    }
+
     // --- entry fee ---
 
     /// @notice The entry fee is a haircut on principal, taken before anything is deployed.
