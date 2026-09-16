@@ -1,5 +1,8 @@
 import type { Abi, Address } from "viem";
 
+import { targetChain } from "./chain";
+import { DEPLOYMENTS } from "./deployments";
+
 import LiquidityVaultAbi from "@/abis/LiquidityVault.json";
 import VaultFactoryAbi from "@/abis/VaultFactory.json";
 import FeeRouterAbi from "@/abis/FeeRouter.json";
@@ -34,10 +37,15 @@ export const ARC = {
 export const USDC_DECIMALS = 6;
 
 /**
- * Set after running contracts/script/Deploy.s.sol. Left unset the dashboard renders its
- * "not deployed yet" state rather than silently reading address zero.
+ * The factory for the targeted chain.
+ *
+ * Resolution order: an explicit environment override, then the known deployment for this chain,
+ * then empty — in which case the dashboard renders its "not deployed yet" state rather than
+ * silently reading address zero.
  */
-export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ?? "") as Address | "";
+export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ||
+  DEPLOYMENTS[targetChain.id]?.factory ||
+  "") as Address | "";
 
 export const erc20Abi = [
   {

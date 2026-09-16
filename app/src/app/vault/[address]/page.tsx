@@ -6,6 +6,7 @@ import { maxUint256, parseUnits } from "viem";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import { Stat } from "@/components/Stat";
+import { targetChain } from "@/lib/chain";
 import { ARC, erc20Abi, vaultAbi } from "@/lib/contracts";
 import { formatAmount, formatPercent, formatUsd, formatUsdCompact, shortAddress } from "@/lib/format";
 import { streamApr, tokenValueInUsdc } from "@/lib/format";
@@ -155,7 +156,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     writeContract({ address: vault, abi: vaultAbi, functionName: "deposit", args: [a0, a1, 0n, holder] });
   };
 
-  const explorer = `https://explorer.arc.io/address/${vault}`;
+  const explorer = `${targetChain.blockExplorers?.default.url ?? ""}/address/${vault}`;
 
   return (
     <div className="space-y-6">

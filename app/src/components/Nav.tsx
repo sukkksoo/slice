@@ -8,9 +8,10 @@ import { targetChain } from "@/lib/wagmi";
 import { shortAddress } from "@/lib/format";
 
 const TABS = [
-  { href: "/", label: "Pools" },
+  { href: "/pools", label: "Pools" },
   { href: "/stakes", label: "Stakes" },
   { href: "/creator", label: "Creator" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export function Nav() {
@@ -37,7 +38,8 @@ export function Nav() {
 
         <nav className="flex items-center gap-1">
           {TABS.map((tab) => {
-            const active = pathname === tab.href;
+            const active =
+              tab.href === "/docs" ? pathname.startsWith("/docs") : pathname === tab.href;
             return (
               <Link
                 key={tab.href}

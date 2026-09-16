@@ -36,3 +36,13 @@ export const arcTestnet = defineChain({
   },
   testnet: true,
 });
+
+/**
+ * Which Arc network the app targets.
+ *
+ * Defaults to testnet because that is where the contracts are currently deployed; pointing the app
+ * at a network with no factory renders an empty dashboard rather than an error, so the default
+ * should always be a network that actually has one. Override with NEXT_PUBLIC_CHAIN_ID.
+ */
+export const targetChain =
+  process.env.NEXT_PUBLIC_CHAIN_ID === String(arc.id) ? arc : arcTestnet;

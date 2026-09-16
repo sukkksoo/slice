@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { Footer } from "@/components/Footer";
 import { Nav } from "@/components/Nav";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -17,9 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Nav />
           <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
-          <footer className="mx-auto max-w-6xl px-4 pb-10 text-xs text-[var(--color-muted)] sm:px-6">
-            Unaudited. Arc chain 5042 · Uniswap v4 · gas paid in USDC.
-          </footer>
+          <Footer />
         </Providers>
       </body>
     </html>
