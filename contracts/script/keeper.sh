@@ -53,14 +53,33 @@ INTERVAL="${KEEPER_INTERVAL:-90}"
 #   KEEPER_ACCOUNT=slice-keeper KEEPER_PASSWORD=...  ./script/keeper.sh   # keystore
 #   PRIVATE_KEY=0x...                                ./script/keeper.sh   # raw key
 if [ -n "${KEEPER_ACCOUNT:-}" ]; then
+  # Ask once, here, rather than making the caller paste a secret into a command line. A password
+  # on the command line lands in shell history and in the process list, and a command with a
+  # placeholder in it invites pasting the placeholder — which decrypts nothing and shows up much
+  # later as an unexplained "poke failed". CI has no terminal, so it sets KEEPER_PASSWORD instead.
   if [ -z "${KEEPER_PASSWORD:-}" ]; then
-    echo "KEEPER_ACCOUNT is set but KEEPER_PASSWORD is not. The keeper signs a transaction every"
-    echo "${KEEPER_INTERVAL:-90}s with nobody watching, so it cannot stop to ask for a password."
+    if [ -t 0 ]; then
+      printf "Keystore password for '%s': " "$KEEPER_ACCOUNT" >&2
+      read -rs KEEPER_PASSWORD
+      printf "
+" >&2
+    else
+      echo "No terminal to prompt on, and KEEPER_PASSWORD is not set."
+      echo "Set it in the environment (that is what CI does) or run this from a terminal."
+      exit 1
+    fi
+  fi
+
+  # --password, not an environment variable: cast does not read CAST_PASSWORD for a keystore.
+  SIGNER=(--account "$KEEPER_ACCOUNT" --password "$KEEPER_PASSWORD")
+
+  # Prove the password decrypts before entering the loop. Otherwise every send fails silently and
+  # the only symptom is "poke failed" repeating every 90 seconds for an unrelated-looking reason.
+  if ! cast wallet address "${SIGNER[@]}" >/dev/null 2>&1; then
+    echo "That password does not decrypt the keystore '$KEEPER_ACCOUNT'."
+    echo "It is the password you chose when running ./script/new-deployer-key.sh."
     exit 1
   fi
-  # --password, not an environment variable: cast does not read CAST_PASSWORD for a keystore, so
-  # relying on it meant a prompt per transaction, which is no use in a loop or in CI.
-  SIGNER=(--account "$KEEPER_ACCOUNT" --password "$KEEPER_PASSWORD")
 else
   : "${PRIVATE_KEY:?set PRIVATE_KEY, or KEEPER_ACCOUNT for a keystore}"
 fi
@@ -93,8 +112,12 @@ round() {
     vault=$(call "$FACTORY" "allVaults(uint256)(address)" "$i")
     [ -n "$vault" ] || continue
 
-    if send "$vault" "poke()"; then :; else
-      echo "$(date -u +%T) $vault poke failed"
+    if ! send "$vault" "poke()"; then
+      # Keep the reason: a silent "poke failed" is indistinguishable between a bad password, an
+      # empty wallet and an RPC hiccup, and they need completely different fixes.
+      why=$(cast send "$vault" "poke()" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1 | head -2 | tr '
+' ' ')
+      echo "$(date -u +%T) $vault poke failed: ${why:-unknown}"
       continue
     fi
 
