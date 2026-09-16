@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { FlowDiagram } from "@/components/Brand";
 import { LiveBadge, PairAvatar, StatBar } from "@/components/ui";
 import { useVaults } from "@/hooks/useVaults";
 import { formatPercent, formatUsdCompact } from "@/lib/format";
@@ -163,7 +164,15 @@ export default function LandingPage() {
           Four steps, all on-chain, all triggerable by anyone.
         </p>
 
-        <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="panel mt-7 overflow-hidden px-6 py-8">
+          {/* Constrained: the SVG scales with its container, so at full panel width its 11px
+              labels would render around 30px. */}
+          <div className="mx-auto max-w-[520px]">
+            <FlowDiagram />
+          </div>
+        </div>
+
+        <ol className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Step
             n="01"
             title="A trade happens"

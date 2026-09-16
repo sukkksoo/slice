@@ -8,7 +8,7 @@ const SECTIONS = [
   {
     title: "Start here",
     links: [
-      { href: "/docs", label: "What Delta is" },
+      { href: "/docs", label: "What Sluice is" },
       { href: "/docs/how-it-works", label: "How it works" },
     ],
   },

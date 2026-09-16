@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Building on Arc — Delta on Arc" };
+export const metadata = { title: "Building on Arc — Sluice on Arc" };
 
 const USDC = `native gas token   18 decimals   — what you pay gas in
 ERC-20 interface    6 decimals   — 0x3600...0000
@@ -30,7 +30,7 @@ export default function ArcPage() {
       <Pre>{USDC}</Pre>
       <Callout tone="warn" title="This is a 1,000,000,000,000x bug waiting to happen">
         Mixing the two representations silently produces a number off by twelve orders of magnitude.
-        Delta sidesteps it entirely by rejecting native-currency pools: Arc&apos;s Uniswap pools
+        Sluice sidesteps it entirely by rejecting native-currency pools: Arc&apos;s Uniswap pools
         quote against the 6-decimal ERC-20 anyway, so supporting both would put a scale factor on
         every accounting path for no benefit.
       </Callout>
@@ -76,7 +76,7 @@ export default function ArcPage() {
         available to it.
       </P>
       <P>
-        Delta therefore accumulates its own. Every permissionless <Code>poke()</Code> records a
+        Sluice therefore accumulates its own. Every permissionless <Code>poke()</Code> records a
         time-weighted observation; automated swaps require both a long enough window and that the
         spot price has not diverged from the average. An attacker has to hold a dislocated price
         across the entire window, not for a single block.
@@ -86,7 +86,7 @@ export default function ArcPage() {
       <P>
         The Uniswap <Code>PoolManager</Code> and the USDC interface sit at identical addresses on
         both networks. <Code>PositionManager</Code> and <Code>UniversalRouter</Code> do not — they
-        have no code at their mainnet addresses on testnet. Delta calls neither, but do not assume
+        have no code at their mainnet addresses on testnet. Sluice calls neither, but do not assume
         an address resolves just because it does on mainnet.
       </P>
     </>

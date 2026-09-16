@@ -265,7 +265,7 @@ contract ArcForkTest is Test {
             ArcChain.USDC_ERC20
         );
 
-        token = new BlocklistERC20("Delta Test Token", "DTT", 18);
+        token = new BlocklistERC20("Sluice Test Token", "DTT", 18);
         swapRouter = new PoolSwapTest(manager);
 
         VaultDeployer deployer = new VaultDeployer();

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {DeltaTestBase} from "./Base.t.sol";
+import {SluiceTestBase} from "./Base.t.sol";
 import {LiquidityVault} from "../src/LiquidityVault.sol";
 
-contract LiquidityVaultTest is DeltaTestBase {
+contract LiquidityVaultTest is SluiceTestBase {
     function test_firstDeposit_mintsSharesAndLocksMinimum() public {
         uint256 shares = _seed(alice, 100_000e6, 100_000e18);
 

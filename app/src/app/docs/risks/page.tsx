@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, LI, P, Strong, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Risks — Delta on Arc" };
+export const metadata = { title: "Risks — Sluice on Arc" };
 
 export default function Risks() {
   return (
@@ -20,14 +20,14 @@ export default function Risks() {
         you had simply held the two assets separately. Fees offset this; they do not cancel it.
       </P>
       <P>
-        This is not a flaw in Delta — it is what providing liquidity is. But it is the risk most
+        This is not a flaw in Sluice — it is what providing liquidity is. But it is the risk most
         likely to actually cost you money, and it is larger for volatile tokens than the fee yield
         usually looks.
       </P>
 
       <H2 id="blocklist">USDC can be frozen</H2>
       <P>
-        Arc&apos;s USDC consults a compliance blocklist on every transfer, and Circle — not Delta,
+        Arc&apos;s USDC consults a compliance blocklist on every transfer, and Circle — not Sluice,
         not you — decides who is on it. The protocol is built so that a blocked{" "}
         <Strong>treasury</Strong> or a blocked <Strong>staker</Strong> cannot affect anyone else:
         protocol fees are pulled rather than pushed, and payouts only ever go to the address the
@@ -91,8 +91,8 @@ export default function Risks() {
 
       <H2 id="chain">Chain and dependency risk</H2>
       <P>
-        Delta sits on Uniswap v4 and on Arc. A critical bug in either, or a chain-level failure,
-        affects Delta regardless of how correct Delta&apos;s own code is.
+        Sluice sits on Uniswap v4 and on Arc. A critical bug in either, or a chain-level failure,
+        affects Sluice regardless of how correct Sluice&apos;s own code is.
       </P>
     </>
   );

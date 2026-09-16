@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {DeltaTestBase} from "./Base.t.sol";
+import {SluiceTestBase} from "./Base.t.sol";
 import {FeeRouter} from "../src/FeeRouter.sol";
 
-contract FeeRouterTest is DeltaTestBase {
+contract FeeRouterTest is SluiceTestBase {
     address internal creator = makeAddr("creator");
     address internal constant BURN = 0x000000000000000000000000000000000000dEaD;
 

@@ -11,7 +11,7 @@ export type VaultSummary = {
   address: Address;
   /** The underlying asset's ticker, e.g. "DTT" — what a person means by "the pool". */
   symbol: string;
-  /** The vault share token's own symbol, e.g. "dLP-DTT". */
+  /** The vault share token's own symbol, e.g. "sLP-DTT". */
   shareSymbol: string;
   assetToken: Address;
   usdcIsCurrency0: boolean;
@@ -157,10 +157,10 @@ export function useVaults() {
       const ok = (offset: number) => at(offset)?.status === "success";
       if (!ok(0)) return [];
 
-      // The vault names its share token `dLP-<asset>`; strip that so the UI shows the pool the
+      // The vault names its share token `sLP-<asset>` (older vaults use `dLP-`); strip that so the UI shows the pool the
       // person recognises rather than the wrapper.
       const shareSymbol = at(0)!.result as string;
-      const symbol = shareSymbol.replace(/^dLP-/, "");
+      const symbol = shareSymbol.replace(/^[A-Za-z]*LP-/, "");
       const assetToken = at(1)!.result as Address;
       const usdcIsCurrency0 = at(2)!.result as boolean;
       const totalSupply = (at(3)?.result as bigint) ?? 0n;

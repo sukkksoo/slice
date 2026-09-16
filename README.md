@@ -1,4 +1,4 @@
-# Delta on Arc
+# Sluice on Arc
 
 Liquidity infrastructure for [Arc](https://www.arc.io/) (chain `5042`): LP staking with streamed
 fee yield, and creator-configurable automatic liquidity injection. Built on Uniswap v4.

@@ -129,6 +129,12 @@ contract FeeRouter is ReentrancyGuard {
         uint256 supply = asset.totalSupply();
         if (supply == 0) return (true, 0);
 
+        // FullMath reverts if a quotient exceeds uint256, and `marketCap` sits inside the view
+        // `injectable()` that the dashboard and keepers call. A token with an absurd supply would
+        // therefore brick those reads rather than simply reporting "not ready". No real token
+        // approaches 2^128 units, so anything above that is reported as unpriceable instead.
+        if (supply > type(uint128).max) return (false, 0);
+
         // Uniswap prices raw units against raw units: price = amount1 / amount0. Converting the
         // whole asset supply into the USDC side therefore needs no decimal adjustment, only the
         // right direction. Each multiply is split in two mulDivs because sqrtPriceX96 squared

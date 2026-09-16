@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
+import { Logo } from "@/components/Brand";
 import { targetChain } from "@/lib/chain";
 import { shortAddress } from "@/lib/format";
 
@@ -28,10 +29,8 @@ export function Nav() {
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-5 py-3.5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid size-8 place-items-center rounded-[10px] bg-gradient-to-br from-[var(--color-accent-bright)] to-[var(--color-accent)] text-[15px] font-bold text-[#04120c] shadow-[0_4px_14px_-4px_rgba(52,211,153,0.6)]">
-            Δ
-          </span>
-          <span className="hidden text-[15px] font-semibold tracking-[-0.01em] sm:block">Delta</span>
+          <Logo size={32} />
+          <span className="hidden text-[15px] font-semibold tracking-[-0.01em] sm:block">Sluice</span>
         </Link>
 
         <nav className="flex items-center gap-0.5">

@@ -23,7 +23,7 @@ import {ArcChain} from "../src/libraries/ArcChain.sol";
 
 /// @notice Shared Arc-shaped fixture: a real v4 PoolManager, USDC etched at its canonical Arc
 ///         address, and a token/USDC pool with a vault on top.
-abstract contract DeltaTestBase is Test {
+abstract contract SluiceTestBase is Test {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 

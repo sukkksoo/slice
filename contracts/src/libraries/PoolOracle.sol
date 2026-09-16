@@ -3,22 +3,33 @@ pragma solidity ^0.8.26;
 
 /// @title PoolOracle
 /// @notice A self-recorded, time-weighted sqrt-price accumulator.
+///
 /// @dev Uniswap v4 moved oracles out of the core pool and into hooks, so a protocol that wants a
 ///      manipulation-resistant price for a pool it does not own has to accumulate its own. Every
 ///      permissionless `poke` records an observation; automated actions then require that the
-///      recorded window is long enough AND that spot has not diverged from the TWAP. An attacker
-///      must therefore hold a dislocated price across the whole window rather than for one block.
+///      recorded window is long enough AND that spot has not diverged from the TWAP.
+///
+/// @dev The accumulator credits the *previously observed* price across the interval it was
+///      actually held, then stores the new price for the next interval — the same shape as
+///      Uniswap's own oracles. Crediting the price observed *now* across the interval that has
+///      already elapsed would be a serious flaw: `poke` is permissionless, so after a quiet gap an
+///      attacker could flash-manipulate the price, poke, and backdate that price across the whole
+///      gap in a single transaction. As written, a manipulated price only reaches the average if
+///      the attacker holds it until somebody pokes again, which is the cost we want to impose.
 library PoolOracle {
     /// @notice Number of retained observations. 32 slots at, say, 5-minute pokes spans ~2.6h.
     uint256 internal constant CARDINALITY = 32;
 
     struct Snapshot {
         uint32 timestamp;
-        uint224 cumulative; // sum of sqrtPriceX96 * elapsedSeconds
+        uint224 cumulative; // sum of sqrtPriceX96 * secondsHeld
     }
 
     struct Oracle {
         uint32 lastTimestamp;
+        /// @dev The price seen at `lastTimestamp`, not yet credited to the accumulator. It is
+        ///      credited on the next `record`, weighted by how long it actually stood.
+        uint160 lastSqrtPriceX96;
         uint224 cumulative;
         uint16 index; // next slot to write
         uint16 count; // populated slots, saturating at CARDINALITY
@@ -26,17 +37,19 @@ library PoolOracle {
     }
 
     error WindowTooShort();
-    error NoObservations();
 
-    /// @notice Fold the current `sqrtPriceX96` into the accumulator.
+    /// @notice Fold the elapsed interval into the accumulator and latch `sqrtPriceX96` for the next.
     /// @dev A no-op when called twice in the same second, which keeps same-block spam from
-    ///      consuming ring slots and shrinking the effective averaging window.
+    ///      consuming ring slots and shrinking the effective averaging window. The latched price is
+    ///      also left alone in that case, so the first price seen in a second is the one that
+    ///      counts and a same-block sandwich cannot overwrite it.
     function record(Oracle storage self, uint160 sqrtPriceX96) internal {
         uint32 nowTs = uint32(block.timestamp);
         uint32 last = self.lastTimestamp;
 
         if (last == 0) {
             self.lastTimestamp = nowTs;
+            self.lastSqrtPriceX96 = sqrtPriceX96;
             self.ring[0] = Snapshot({timestamp: nowTs, cumulative: 0});
             self.index = 1;
             self.count = 1;
@@ -48,10 +61,12 @@ library PoolOracle {
 
         uint224 next;
         unchecked {
-            next = self.cumulative + uint224(uint256(sqrtPriceX96) * elapsed);
+            // The *previous* price, across the interval it was actually held.
+            next = self.cumulative + uint224(uint256(self.lastSqrtPriceX96) * elapsed);
         }
         self.cumulative = next;
         self.lastTimestamp = nowTs;
+        self.lastSqrtPriceX96 = sqrtPriceX96;
 
         uint16 i = self.index;
         self.ring[i] = Snapshot({timestamp: nowTs, cumulative: next});
@@ -62,7 +77,7 @@ library PoolOracle {
     /// @notice Mean sqrt price over the longest recorded window of at least `minWindow` seconds.
     /// @return ok False when the accumulator does not yet span `minWindow`.
     /// @dev Non-reverting so that callers on a user-facing path (a harvest, say) can degrade
-    ///      gracefully instead of bricking when the oracle is still warming up.
+    ///      gracefully instead of bricking while the oracle is still warming up.
     function tryConsult(Oracle storage self, uint32 minWindow)
         internal
         view
@@ -74,14 +89,18 @@ library PoolOracle {
         uint32 newestTs = self.lastTimestamp;
         uint224 newestCum = self.cumulative;
 
-        // Walk backwards from the newest slot toward the oldest and take the first observation
-        // that is at least `minWindow` old, which maximises the window we can honestly claim.
-        for (uint256 n = 1; n < count; n++) {
-            uint256 slot = (uint256(self.index) + CARDINALITY - 1 - n) % CARDINALITY;
-            Snapshot memory s = self.ring[slot];
+        // Walk from the OLDEST observation forward and take the first that spans `minWindow`. The
+        // oldest qualifying entry gives the longest averaging window, which is the most expensive
+        // one for an attacker to hold a dislocated price across. Walking the other way would
+        // return the shortest qualifying window instead — cheaper to manipulate.
+        uint256 oldest = count == CARDINALITY ? self.index : 0;
+
+        for (uint256 n = 0; n + 1 < count; n++) {
+            Snapshot memory s = self.ring[(oldest + n) % CARDINALITY];
             if (s.timestamp == 0) continue;
-            if (newestTs - s.timestamp >= minWindow) {
-                uint32 window = newestTs - s.timestamp;
+
+            uint32 window = newestTs - s.timestamp;
+            if (window >= minWindow) {
                 // casting to 'uint160' is safe because the quotient is a time-weighted mean of
                 // sqrtPriceX96 samples, each itself a uint160, so the mean cannot exceed the max
                 // forge-lint: disable-next-line(unsafe-typecast)

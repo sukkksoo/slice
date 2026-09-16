@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "How it works — Delta on Arc" };
+export const metadata = { title: "How it works — Sluice on Arc" };
 
 export default function HowItWorks() {
   return (

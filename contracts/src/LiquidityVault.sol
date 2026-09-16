@@ -188,7 +188,7 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         address _owner,
         address _treasury,
         string memory nameSuffix
-    ) ERC20(string.concat("Delta LP ", nameSuffix), string.concat("dLP-", nameSuffix)) {
+    ) ERC20(string.concat("Sluice LP ", nameSuffix), string.concat("sLP-", nameSuffix)) {
         if (key.currency0.isAddressZero()) revert NativeCurrencyUnsupported();
         if (_owner == address(0) || _treasury == address(0)) revert ParameterOutOfRange();
 
@@ -608,7 +608,12 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
             SwapParams({
                 zeroForOne: zeroForOne,
                 amountSpecified: -int256(amountIn),
-                sqrtPriceLimitX96: _sqrtPriceLimit(twapSqrtPriceX96, zeroForOne)
+                // Anchored to spot, not the TWAP. The two checks do different jobs: the deviation
+                // test above rejects a dislocated *starting* price, while this limit caps how far
+                // this swap may move it. Deriving the limit from the TWAP conflates them — when
+                // spot sits legitimately inside the band but on the far side of the average, the
+                // limit lands the wrong side of spot and v4 rejects the swap outright.
+                sqrtPriceLimitX96: _sqrtPriceLimit(spotSqrtPriceX96, zeroForOne)
             }),
             ""
         );
@@ -618,10 +623,12 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         return (true, uint256(uint128(outDelta)), uint256(uint128(-inDelta)));
     }
 
-    /// @notice A sqrt-price bound `maxDeviationBps` from the reference, in the swap direction.
+    /// @notice A sqrt-price bound `maxDeviationBps` from the current price, in the swap direction.
     /// @dev The bound is applied to sqrt price, so the implied bound on price is roughly twice
-    ///      `maxDeviationBps`. That headroom is intentional: the deviation check above already
-    ///      rejects a dislocated starting price, and this limit only caps the swap's own impact.
+    ///      `maxDeviationBps`. That headroom is intentional: the deviation check in the caller
+    ///      already rejects a dislocated starting price, and this limit only caps the swap's own
+    ///      impact. Passing spot rather than the TWAP guarantees the limit is always on the far
+    ///      side of the current price, so it can bind the swap but never reject it up front.
     function _sqrtPriceLimit(uint160 refSqrtPriceX96, bool zeroForOne) internal view returns (uint160) {
         uint256 bounded = zeroForOne
             ? (uint256(refSqrtPriceX96) * (BPS - maxDeviationBps)) / BPS

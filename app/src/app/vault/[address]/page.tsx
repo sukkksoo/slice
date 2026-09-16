@@ -60,8 +60,8 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     d?.[i]?.status === "success" ? (d[i]!.result as T) : fallback;
 
   const shareSymbol = val<string>(0, "…");
-  // The share token is named `dLP-<asset>`; show the pool, not the wrapper.
-  const symbol = shareSymbol.replace(/^dLP-/, "");
+  // The share token is named `sLP-<asset>` (older vaults use `dLP-`); show the pool, not the wrapper.
+  const symbol = shareSymbol.replace(/^[A-Za-z]*LP-/, "");
   const assetToken = val<Address>(1, "0x0000000000000000000000000000000000000000");
   const usdcIsCurrency0 = val<boolean>(2, true);
   const totalSupply = val<bigint>(3, 0n);

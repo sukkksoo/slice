@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { Logo } from "@/components/Brand";
 import { targetChain } from "@/lib/chain";
 
 const GROUPS = [
@@ -16,7 +17,7 @@ const GROUPS = [
   {
     title: "Learn",
     links: [
-      { href: "/docs", label: "What Delta is" },
+      { href: "/docs", label: "What Sluice is" },
       { href: "/docs/how-it-works", label: "How it works" },
       { href: "/docs/fee-streaming", label: "The fee stream" },
       { href: "/docs/creator-routing", label: "Fee routing" },
@@ -40,10 +41,8 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-[var(--color-accent-bright)] to-[var(--color-accent)] text-sm font-bold text-[#04120c]">
-                Δ
-              </span>
-              <span className="text-sm font-semibold">Delta</span>
+              <Logo size={28} />
+              <span className="text-sm font-semibold">Sluice</span>
             </div>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-[var(--color-muted)]">
               Liquidity infrastructure for Arc. Stake liquidity and earn streamed fees, or route

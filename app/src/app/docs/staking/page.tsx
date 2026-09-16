@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, LI, P, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Staking liquidity — Delta on Arc" };
+export const metadata = { title: "Staking liquidity — Sluice on Arc" };
 
 export default function Staking() {
   return (
@@ -45,7 +45,7 @@ export default function Staking() {
         That means your balance shifts with the price, exactly as it would if you held the position
         yourself. If the token rises against USDC, your position ends up holding more USDC and less
         of the token. This is ordinary automated-market-maker behaviour, usually called{" "}
-        <Strong>impermanent loss</Strong>, and it applies here in full. Delta does not hedge it.
+        <Strong>impermanent loss</Strong>, and it applies here in full. Sluice does not hedge it.
       </P>
       <UL>
         <LI>Shares are transferable — sending them moves the underlying claim.</LI>

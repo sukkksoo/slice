@@ -67,6 +67,7 @@ body::before {
   background:
     radial-gradient(60rem 30rem at 15% -8%, rgba(52, 211, 153, 0.07), transparent 60%),
     radial-gradient(45rem 25rem at 95% 0%, rgba(94, 234, 212, 0.045), transparent 55%);
+  animation: sl-wash 26s ease-in-out infinite;
 }
 
 body > * {
@@ -230,12 +231,101 @@ pre, code {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* --- hero diagram motion --- */
+
+@keyframes sl-flow {
+  from {
+    stroke-dashoffset: 254;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.sl-flow {
+  animation: sl-flow 3.3s linear infinite;
+}
+
+@keyframes sl-drift {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(164px);
+    opacity: 0;
+  }
+}
+.sl-drift {
+  animation: sl-drift 3.2s linear infinite;
+}
+
+@keyframes sl-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+    r: 9;
+  }
+  50% {
+    opacity: 1;
+    r: 11;
+  }
+}
+.sl-pulse {
+  animation: sl-pulse 2.4s ease-in-out infinite;
+}
+
+/* Slow drift on the ambient wash, so large dark areas are never completely static. */
+@keyframes sl-wash {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(2%, 1.5%, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after,
-  .live-dot {
+  .live-dot,
+  .sl-flow,
+  .sl-pulse {
+    animation: none;
+  }
+  body::before {
     animation: none;
   }
   .btn:active:not(:disabled) {
     transform: none;
+  }
+
+  /* The drifting dots would otherwise freeze stacked at their origin, which reads as a broken
+     diagram rather than a still one. Space them along the path instead. */
+  .sl-drift {
+    animation: none;
+  }
+  .sl-drift:nth-of-type(1) {
+    transform: translateX(20px);
+  }
+  .sl-drift:nth-of-type(2) {
+    transform: translateX(62px);
+  }
+  .sl-drift:nth-of-type(3) {
+    transform: translateX(104px);
+  }
+  .sl-drift:nth-of-type(4) {
+    transform: translateX(146px);
+  }
+
+  /* Give the inbound streams a visible static form too. */
+  .sl-flow {
+    stroke-dasharray: 6 10;
+    opacity: 0.5;
   }
 }

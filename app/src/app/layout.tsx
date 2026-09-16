@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Delta on Arc — Liquidity Infrastructure",
+  title: "Sluice on Arc — Liquidity Infrastructure",
   description:
     "Stake liquidity in any token and earn a streamed share of swap fees in USDC. Route trading fees into automatic on-chain liquidity injections. Built on Uniswap v4, on Arc.",
 };

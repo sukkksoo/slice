@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Fee routing — Delta on Arc" };
+export const metadata = { title: "Fee routing — Sluice on Arc" };
 
 const FLOW = `USDC arrives (launchpad fees, treasury budget, plain transfer)
         │
