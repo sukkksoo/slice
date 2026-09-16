@@ -100,7 +100,12 @@ fi
 ONCE=false
 [ "${1:-}" = "--once" ] && ONCE=true
 
-send() { cast send "$@" --rpc-url "$RPC" "${SIGNER[@]}" >/dev/null 2>&1; }
+# Captures output rather than discarding it, so a failure can be explained without being
+# repeated. The previous version re-sent the transaction purely to obtain an error
+# message, which spends gas a second time and re-runs a state change that may well have
+# succeeded — a "failure" that printed a block hash was exactly that.
+LAST_OUT=""
+send() { LAST_OUT=$(cast send "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1); }
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 round() {
@@ -113,11 +118,10 @@ round() {
     [ -n "$vault" ] || continue
 
     if ! send "$vault" "poke()"; then
-      # Keep the reason: a silent "poke failed" is indistinguishable between a bad password, an
-      # empty wallet and an RPC hiccup, and they need completely different fixes.
-      why=$(cast send "$vault" "poke()" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1 | head -2 | tr '
-' ' ')
-      echo "$(date -u +%T) $vault poke failed: ${why:-unknown}"
+      # The reason matters: a bad password, an empty wallet and an RPC timeout all look the same
+      # otherwise and need completely different fixes. Taken from the call that actually failed.
+      why=$(printf '%s' "$LAST_OUT" | grep -iE "error|warning|reverted|timeout|refused" | head -1)
+      echo "$(date -u +%T) $vault poke failed: ${why:-see above}"
       continue
     fi
 
