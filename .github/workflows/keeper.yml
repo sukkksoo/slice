@@ -45,10 +45,17 @@ jobs:
           KEEPER_INTERVAL: "90"
         run: |
           if [ -z "$PRIVATE_KEY" ]; then
-            echo "KEEPER_PRIVATE_KEY is not set. Add it under Settings -> Secrets and variables"
-            echo "-> Actions. Use a key that holds nothing but gas: poke and harvest are"
-            echo "permissionless, so a leaked keeper key costs the gas in it and nothing more."
-            exit 1
+            # Exit clean, not failing. This workflow ships with the repository and starts running
+            # on its schedule the moment it reaches the default branch, so before anyone has
+            # decided to run a keeper it should stand down quietly rather than post a red cross
+            # every six hours for something that is not broken.
+            echo "KEEPER_PRIVATE_KEY is not set, so there is nothing to do."
+            echo
+            echo "To start the keeper: Settings -> Secrets and variables -> Actions -> New"
+            echo "repository secret, named KEEPER_PRIVATE_KEY. Use a key holding nothing but gas."
+            echo "poke() and harvest() are permissionless and cannot redirect funds, so a leaked"
+            echo "keeper key costs the gas inside it and nothing else."
+            exit 0
           fi
           chmod +x script/keeper.sh
           # Leave a quarter of an hour of headroom under the job timeout so the run ends cleanly
