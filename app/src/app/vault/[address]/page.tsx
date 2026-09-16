@@ -28,6 +28,7 @@ import {
   tokenValueInUsdc,
 } from "@/lib/format";
 import {
+  deviationBps,
   isDynamicFee,
   previewDepositPair,
   previewDepositUsdc,
@@ -63,6 +64,7 @@ const FIELDS = [
   "streamBps",
   "protocolFeeBps",
   "depositFeeBps",
+  "maxDeviationBps",
   "sqrtPriceLowerX96",
   "sqrtPriceUpperX96",
   "poolKey",
@@ -121,6 +123,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const streamBps = Number(val<bigint | number>(F.streamBps, 0));
   const protocolFeeBps = Number(val<bigint | number>(F.protocolFeeBps, 0));
   const depositFeeBps = Number(val<bigint | number>(F.depositFeeBps, 0));
+  const maxDeviationBps = Number(val<bigint | number>(F.maxDeviationBps, 0));
   const sqrtLower = val<bigint>(F.sqrtPriceLowerX96, 0n);
   const sqrtUpper = val<bigint>(F.sqrtPriceUpperX96, 0n);
   const poolKey = val<PoolKey | null>(F.poolKey, null);
@@ -131,7 +134,14 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const usdcBalance = account ? val<bigint>(I_USDC_BAL, 0n) : 0n;
   const usdcAllowance = account ? val<bigint>(I_USDC_ALLOW, 0n) : 0n;
 
-  const [oracleWarm, sqrtPriceX96] = prices;
+  const [oracleWarm, sqrtPriceX96, twapSqrtPriceX96] = prices;
+
+  // Warm is not the same as usable. The vault also requires spot to sit within maxDeviationBps of
+  // the TWAP before it will swap, so gating only on `oracleWarm` offers a deposit that reverts and
+  // charges the person gas for the privilege.
+  const drift = oracleWarm ? deviationBps(sqrtPriceX96, twapSqrtPriceX96) : 0;
+  const withinBand = oracleWarm && maxDeviationBps > 0 && drift <= maxDeviationBps;
+  const canSwap = oracleWarm && withinBand;
   const lpFee = poolKey?.fee ?? 0;
   const hasHook = Boolean(poolKey && poolKey.hooks !== zeroAddress);
 
@@ -315,7 +325,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     !account ||
     usdcAmount === 0n ||
     (mode === "pair" && assetAmount === 0n) ||
-    (mode === "usdc" && !oracleWarm) ||
+    (mode === "usdc" && !canSwap) ||
     (previewReady && expectedShares === 0n);
 
   return (
@@ -338,18 +348,34 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <LiveBadge warm={oracleWarm} />
+          {/* Tracks whether the vault can actually swap, not just whether the oracle has a price.
+              "Live" beside a paused deposit panel is worse than a slightly loose label. */}
+          <LiveBadge warm={canSwap} />
           <Link href="/pools" className="btn btn-ghost px-3 py-1.5 text-xs">
             All pools
           </Link>
         </div>
       </div>
 
-      {!oracleWarm && (
+      {!canSwap && (
         <div className="panel border-[var(--color-warn)] bg-[var(--color-warn-dim)] px-5 py-3.5 text-[13px] text-[var(--color-warn)]">
-          The price oracle is still filling its 30-minute window. Single-sided deposits and
-          compounding are paused until it does — two-sided deposits, withdrawals and claims are
-          unaffected.
+          {!oracleWarm ? (
+            <>
+              The price oracle is still filling its 30-minute window. Single-sided deposits and
+              compounding are paused until it does — two-sided deposits, withdrawals and claims are
+              unaffected.
+            </>
+          ) : (
+            <>
+              The pool price has moved{" "}
+              <span className="num font-semibold">{(drift / 100).toFixed(2)}%</span> away from its
+              time-weighted average, past the{" "}
+              <span className="num font-semibold">{(maxDeviationBps / 100).toFixed(2)}%</span> the
+              vault will swap within. Single-sided deposits and compounding are paused until it
+              settles, so the vault cannot be made to trade at a dislocated price. Two-sided
+              deposits, withdrawals and claims do not swap and are unaffected.
+            </>
+          )}
         </div>
       )}
 
@@ -648,7 +674,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
           <Action
             guard={guard}
             busy={busy}
-            disabled={pendingCompound === 0n || !oracleWarm}
+            disabled={pendingCompound === 0n || !canSwap}
             onClick={() => call("keeper", "compound")}
             label={`Compound ${formatUsdCompact(pendingCompound)}`}
             variant="ghost"

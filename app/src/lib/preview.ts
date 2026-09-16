@@ -119,3 +119,17 @@ export function previewDepositUsdc(usdc: bigint, lpFeePips: number, pool: PoolSh
   const liquidity = liquidityForAmounts(pool.sqrtP, pool.sqrtLower, pool.sqrtUpper, a0, a1);
   return sharesForLiquidity(liquidity, pool.totalSupply, pool.totalLiquidity);
 }
+
+/**
+ * Absolute deviation of spot from the TWAP, in basis points — mirrors `PoolOracle.deviationBps`.
+ *
+ * The vault refuses to swap when this exceeds `maxDeviationBps`, so a UI that gates only on
+ * "is the oracle warm" will happily offer a deposit that reverts. Being warm and being inside the
+ * band are different conditions: a sparse keeper produces a long averaging window, and a volatile
+ * token can sit several percent away from a multi-hour average while the oracle is perfectly warm.
+ */
+export function deviationBps(spot: bigint, twap: bigint): number {
+  if (twap === 0n) return Number.MAX_SAFE_INTEGER;
+  const diff = spot > twap ? spot - twap : twap - spot;
+  return Number((diff * 10_000n) / twap);
+}
