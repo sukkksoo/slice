@@ -27,31 +27,37 @@ fi
 
 echo "Creating '$NAME'. Choose a strong password — losing it loses the key."
 echo
-cast wallet new "$DIR" "$NAME"
+# tee so the password prompt and the address stay visible, while the address is also captured
+# for the instructions below — otherwise they would print an empty command to copy.
+cast wallet new "$DIR" "$NAME" | tee /tmp/slice-newkey.$$
+ADDRESS=$(grep -oE "0x[0-9a-fA-F]{40}" /tmp/slice-newkey.$$ | head -1)
+rm -f /tmp/slice-newkey.$$
 
 cat <<EOF
 
 Keystore: $DIR/$NAME
 
-Next:
+This key only signs. It receives no ownership and no fees — those belong to DELTA_OWNER and
+DELTA_TREASURY, set when the factory was deployed. Losing or leaking it costs the gas inside it.
 
-  1. Fund the address printed above with USDC on Arc mainnet. Arc pays gas in USDC.
-     Budget ~25 USDC for the factory plus a first vault, and more for seed liquidity.
+Fund the address above with USDC on Arc mainnet; gas is charged in USDC there. How much depends
+on what this key is for:
 
-  2. Confirm it arrived:
+  Deploying      ~15 USDC covers the factory, a first vault and a round trip through it.
+                 See MAINNET.md.
 
-     cast balance <address> --rpc-url https://rpc.mainnet.arc.io
+  Keeping the    A poke costs about 0.3 cents, but it repeats forever, so the interval sets the
+  oracle warm    bill: ~26 USDC/month at 5-minute pokes, ~85 at 90-second pokes. Deposits and
+                 harvests poke for free, so a busy vault needs far less. See script/keeper.sh
+                 for how the interval trades off against the TWAP window.
 
-  3. Deploy. The key is referenced by name and never appears on the command line:
+Check it arrived:
 
-     export ARC_RPC_URL=https://rpc.mainnet.arc.io
-     export DELTA_OWNER=0x76f7D9AaBC2E280e3cD9ffFf6dd34a5cba9A5030
-     export DELTA_TREASURY=0x76f7D9AaBC2E280e3cD9ffFf6dd34a5cba9A5030
+  cast balance $ADDRESS --rpc-url https://rpc.mainnet.arc.io
 
-     forge script script/Deploy.s.sol --rpc-url \$ARC_RPC_URL           # dry run
-     forge script script/Deploy.s.sol --rpc-url \$ARC_RPC_URL \
-       --broadcast --account $NAME
+Then reference the key by name — it never appears on a command line or in shell history:
 
-This key only pays gas. Ownership and both fee streams go to DELTA_OWNER / DELTA_TREASURY,
-so a compromise of this key does not hand over the protocol. See MAINNET.md for the rest.
+  forge script script/Deploy.s.sol --rpc-url \$ARC_RPC_URL --broadcast --account $NAME
+  PRIVATE_KEY=... ./script/keeper.sh          # keeper reads a raw key, not a keystore
+
 EOF

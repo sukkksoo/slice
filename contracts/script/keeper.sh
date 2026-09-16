@@ -27,6 +27,20 @@
 #             the time, so swaps and harvests keep deferring.
 #
 # test/PokeCadence.t.sol pins all of this.
+#
+# WHAT IT COSTS, AND WHEN IT IS WORTH RUNNING
+#
+# A poke is ~67k gas, about 0.3 cents at 44 gwei — but it repeats forever, so the interval is
+# the bill: roughly 85 USDC a month at 90s, 26 at 5 minutes, 13 at 10 minutes.
+#
+# Deposits, withdrawals, harvests and compounds all call poke() themselves, so a vault with
+# real traffic feeds its own oracle and the keeper only covers quiet stretches. A vault with
+# no deposits has nothing to harvest and nobody waiting on a single-sided deposit, so there is
+# no reason to keep its oracle warm at all — check TVL before paying for this.
+#
+# Cost and usability are coupled through maxDeviationBps, which the vault owner sets up to 5%.
+# A wider band tolerates the longer TWAP window that a slower keeper produces: 5-minute pokes
+# with a 3% band cost a third of 90-second pokes with the default 1%.
 set -euo pipefail
 
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
