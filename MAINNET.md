@@ -19,9 +19,20 @@ transactions and spends real USDC. Read the preconditions before running any of 
 **1. A deployer key that was not generated in a coding session.**
 
 `contracts/.env` holds a throwaway key created for testnet. It is written in plaintext to
-disk and must never hold mainnet funds. Deploy from a hardware wallet (`--ledger`) or a key
-generated and stored outside this repo. The deployer only pays gas — it receives no ownership,
-because `DELTA_OWNER` and `DELTA_TREASURY` are set to the address above.
+disk and must never hold mainnet funds.
+
+Use a hardware wallet (`--ledger`), or create an encrypted keystore:
+
+```bash
+cd contracts && ./script/new-deployer-key.sh
+```
+
+Run that yourself rather than having an assistant generate the key — anything generated in an
+assistant session is written into the session transcript in plaintext.
+
+The deployer only pays gas. It receives no ownership, because `DELTA_OWNER` and
+`DELTA_TREASURY` are set to the address above, so losing this key costs you gas money and
+nothing else.
 
 **2. USDC on Arc mainnet, in the deploying account.**
 
@@ -53,7 +64,7 @@ export DELTA_TREASURY=0x76f7D9AaBC2E280e3cD9ffFf6dd34a5cba9A5030
 forge script script/Deploy.s.sol --rpc-url $ARC_RPC_URL
 
 # 2. Broadcast.
-forge script script/Deploy.s.sol --rpc-url $ARC_RPC_URL --broadcast --ledger
+forge script script/Deploy.s.sol --rpc-url $ARC_RPC_URL --broadcast --account slice-deployer
 ```
 
 Record the printed `VaultFactory` and `VaultDeployer` addresses.
@@ -67,7 +78,7 @@ the fee tier is 10000 and tick spacing is 200:
 cast send $FACTORY \
   "createVault((address,address,uint24,int24,address))" \
   "(0x3600000000000000000000000000000000000000,$TOKEN,10000,200,$HOOK)" \
-  --rpc-url $ARC_RPC_URL --ledger
+  --rpc-url $ARC_RPC_URL --account slice-deployer
 ```
 
 Read the hook address from the pool's `Initialize` event — Argus deploys one hook per pool, so
