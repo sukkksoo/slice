@@ -37,20 +37,58 @@ command -v cast >/dev/null || { echo "cast not found. Add ~/.foundry/bin to PATH
 
 # --- signer ------------------------------------------------------------------------
 if [ -e "$KEYSTORE" ]; then
-  SIGNER=(--account slice-deployer)
-  ADDR=$(cast wallet address --account slice-deployer)
+  # A password is typed, not pasted, which is the whole reason the keystore is worth having on a
+  # machine where pasting into a hidden prompt is unreliable. Asked once and proven here: this
+  # run sends seven transactions, and being asked seven times — or discovering on the fourth that
+  # the password was wrong — would both be worse.
+  if [ -z "${KEYSTORE_PASSWORD:-}" ]; then
+    printf "Keystore password for 'slice-deployer': "
+    read -rs KEYSTORE_PASSWORD
+    echo
+  fi
+  SIGNER=(--account slice-deployer --password "$KEYSTORE_PASSWORD")
+  if ! ADDR=$(cast wallet address "${SIGNER[@]}" 2>/dev/null); then
+    echo "That password does not decrypt the keystore 'slice-deployer'."
+    exit 1
+  fi
 elif [ -n "${PRIVATE_KEY:-}" ]; then
   PK="$PRIVATE_KEY"
 else
-  echo "Paste the deployer private key. Input is hidden and nothing is written to disk."
-  echo "In Git Bash use Shift+Insert or right-click to paste, not Ctrl+V."
+  echo "Paste the deployer private key, then press Enter."
+  echo
+  echo "Input is hidden, so the window will look like nothing happened — that is expected."
+  echo "It confirms the length once you press Enter, without showing the key."
+  echo
+  echo "To paste in Git Bash:  Shift+Insert,  or right-click inside the window,"
+  echo "                       or the icon top-left -> Edit -> Paste."
+  echo "If none of those work: press Ctrl+C and run it with the key on the line instead:"
+  echo "    PRIVATE_KEY=<key> ./script/redeploy-fix.sh"
+  echo
   printf "key: "
   read -rs PK
   echo
-  [ -n "$PK" ] || { echo "Empty key — nothing read."; exit 1; }
+  # Feedback without disclosure. Reading nothing at all looks identical to reading a key when
+  # the echo is off, which is a miserable thing to guess at — and a key that arrived truncated
+  # would otherwise only announce itself as a wrong deployer address further down.
+  echo "(read ${#PK} characters)"
+  [ -n "$PK" ] || {
+    echo "Nothing was read — the paste did not reach the prompt. Try the PRIVATE_KEY= form above."
+    exit 1
+  }
 fi
 if [ -n "${PK:-}" ]; then
+  # Strip anything a paste may have carried in: surrounding whitespace, a stray newline, the
+  # quotes some terminals add. Then normalise the prefix, because cast wants it and pasted keys
+  # usually lack it.
+  PK=$(printf '%s' "$PK" | tr -d '[:space:]"'"'")
   case "$PK" in 0x*) ;; *) PK="0x$PK";; esac
+
+  if [ ${#PK} -ne 66 ]; then
+    echo "That is ${#PK} characters; a private key is 64 hex digits (66 with the 0x)."
+    echo "It probably arrived truncated. Try again, or use the PRIVATE_KEY= form."
+    exit 1
+  fi
+
   SIGNER=(--private-key "$PK")
   ADDR=$(cast wallet address --private-key "$PK") \
     || { echo "That does not parse as a private key."; exit 1; }
