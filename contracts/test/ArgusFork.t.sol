@@ -162,6 +162,34 @@ contract ArgusForkTest is Test {
     ///      the pool cannot move mid-measurement. Measured repeatedly at 300 bps, plus the pool's
     ///      own 1% — which together are the 400 the hook's `totalFeeBps()` reports.
 
+    /// @notice Governance and fee wiring a mainnet deploy would actually produce.
+    ///
+    /// @dev The factory seeds each vault's `owner`, `treasury` and `feeRecipient` from its own
+    ///      constructor arguments, so a wrong value there is inherited by every vault ever created
+    ///      and cannot be fixed without redeploying. Checked against a real pool rather than a
+    ///      mock so the assertion covers the deployment path, not just the constructor.
+    function test_mainnetGovernanceWiring() public onlyForked {
+        address expectedOwner = vm.envOr("DELTA_OWNER", address(this));
+        address expectedTreasury = vm.envOr("DELTA_TREASURY", address(this));
+
+        VaultDeployer d = new VaultDeployer();
+        VaultFactory f = new VaultFactory(manager, d, expectedOwner, expectedTreasury);
+        d.setFactory(address(f));
+        LiquidityVault v = LiquidityVault(f.createVault(_cinuKey()));
+
+        assertEq(v.owner(), expectedOwner, "vault owner is not the configured owner");
+        assertEq(v.treasury(), expectedTreasury, "protocol fees would go to the wrong address");
+        assertEq(v.feeRecipient(), expectedTreasury, "entry fees would go to the wrong address");
+
+        // The rates a depositor would actually meet on day one.
+        assertEq(v.depositFeeBps(), 50, "entry fee is not 0.5%");
+        assertEq(v.protocolFeeBps(), v.MAX_PROTOCOL_FEE_BPS(), "protocol fee should start at its ceiling");
+        assertEq(v.protocolFeeBps(), 1_000, "protocol fee is not 10%");
+
+        console2.log("owner / treasury / feeRecipient", v.owner());
+        console2.log("vault on CINU                  ", address(v));
+    }
+
     /// @notice A second vault for the same pool is refused, so there is one canonical vault.
     function test_onlyOneVaultPerArgusPool() public onlyForked {
         factory.createVault(key);
