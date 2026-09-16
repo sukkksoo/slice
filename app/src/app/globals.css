@@ -406,3 +406,39 @@ code {
     opacity: 0.5;
   }
 }
+
+/* Range inputs used by the yield calculator. Browsers give these a native look that ignores every
+   token in this file, so the track and thumb are drawn explicitly for both engines. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-surface-3);
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 3px solid var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+.slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 3px solid var(--color-surface);
+  cursor: grab;
+}
+.slider:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-dim);
+}

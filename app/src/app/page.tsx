@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { FlowDiagram } from "@/components/Brand";
+import { ComparisonTable, Faq, FeeWaterfall, YieldCalculator } from "@/components/explain";
 import { LiveBadge, PairAvatar, StatBar } from "@/components/ui";
 import { useVaults } from "@/hooks/useVaults";
 import { formatPercent, formatUsdCompact } from "@/lib/format";
@@ -66,7 +67,7 @@ export default function LandingPage() {
           >
             <div className="flex items-center justify-between">
               <span className="label">Live pool</span>
-              <LiveBadge warm={featured.oracleWarm} />
+              <LiveBadge warm={featured.canSwap} />
             </div>
 
             <div className="mt-5 flex items-center gap-3">
@@ -115,14 +116,38 @@ export default function LandingPage() {
               ))}
             </div>
           ) : (
-            <StatBar
-              items={[
-                { label: "Total value locked", value: formatUsdCompact(totals.tvl) },
-                { label: "Pools", value: String(totals.count) },
-                { label: "Streaming fees", value: String(totals.streaming), tone: "accent" },
-                { label: "Queued to compound", value: formatUsdCompact(totals.queued) },
-              ]}
-            />
+            <>
+              {/* Four zeroes across the top of a landing page reads as a broken product rather
+                  than a new one. Until something is deposited, say plainly that nothing is —
+                  which is both more honest and less alarming than $0.00 repeated. */}
+              {totals.tvl === 0n ? (
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="label">No deposits yet</div>
+                    <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--color-muted)]">
+                      The contracts are live on {targetChain.name} with{" "}
+                      <span className="num font-semibold text-[var(--color-text)]">
+                        {totals.count}
+                      </span>{" "}
+                      {totals.count === 1 ? "pool" : "pools"} listed, and nothing staked in them so
+                      far. Figures appear here as soon as they do.
+                    </p>
+                  </div>
+                  <Link href="/pools" className="btn btn-ghost">
+                    Be the first
+                  </Link>
+                </div>
+              ) : (
+                <StatBar
+                  items={[
+                    { label: "Total value locked", value: formatUsdCompact(totals.tvl) },
+                    { label: "Pools", value: String(totals.count) },
+                    { label: "Streaming fees", value: String(totals.streaming), tone: "accent" },
+                    { label: "Queued to compound", value: formatUsdCompact(totals.queued) },
+                  ]}
+                />
+              )}
+            </>
           )}
         </section>
       )}
@@ -164,11 +189,23 @@ export default function LandingPage() {
           Four steps, all on-chain, all triggerable by anyone.
         </p>
 
-        <div className="panel mt-7 overflow-hidden px-6 py-8">
-          {/* Constrained: the SVG scales with its container, so at full panel width its 11px
-              labels would render around 30px. */}
-          <div className="mx-auto max-w-[520px]">
-            <FlowDiagram />
+        <div className="mt-7 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="panel flex items-center justify-center overflow-hidden px-6 py-8">
+            {/* Constrained: the SVG scales with its container, so at full panel width its 11px
+                labels would render around 30px. */}
+            <div className="mx-auto w-full max-w-[420px]">
+              <FlowDiagram />
+            </div>
+          </div>
+          <div className="panel px-6 py-6">
+            <div className="label">Worked example</div>
+            <h3 className="mt-1.5 text-[15px] font-semibold">A pool trading $50,000 in a day</h3>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
+              Every number below is the protocol&apos;s own arithmetic, not a projection.
+            </p>
+            <div className="mt-5">
+              <FeeWaterfall />
+            </div>
           </div>
         </div>
 
@@ -202,6 +239,131 @@ export default function LandingPage() {
           Read the full mechanics
           <span aria-hidden>→</span>
         </Link>
+      </section>
+
+      {/* --- what it would actually pay --- */}
+      <section>
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em]">What would it pay you?</h2>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">
+          Fee income is volume multiplied by the pool&apos;s fee, split by how much of the vault you
+          own. Move the inputs and watch it — there is no hidden model.
+        </p>
+        <div className="panel mt-7 px-6 py-7">
+          <YieldCalculator />
+        </div>
+      </section>
+
+      {/* --- versus the alternatives --- */}
+      <section>
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em]">
+          Against the two things you would do otherwise
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">
+          Provide liquidity yourself and the fees are real but stranded in the position. Farm, and
+          the yield is minted rather than earned. Slice is the same fees with the collection
+          automated and the payout in USDC.
+        </p>
+        <div className="mt-7">
+          <ComparisonTable />
+        </div>
+      </section>
+
+      {/* --- questions --- */}
+      <section>
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Questions worth asking</h2>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">
+          Including the ones with uncomfortable answers.
+        </p>
+        <div className="mt-7">
+          <Faq
+            items={[
+              {
+                q: "Can you take my deposit?",
+                a: (
+                  <>
+                    No. There is no function that moves a staker&apos;s principal — not for the
+                    owner, not for anyone. The owner can change fee rates within fixed caps and
+                    point fees at a different address, and that is the whole of it. Withdrawals
+                    cannot be paused because nothing exists to pause them with. Every one of those
+                    claims is checkable on the{" "}
+                    <Link href="/docs/contracts" className="text-[var(--color-accent)] underline">
+                      contracts page
+                    </Link>
+                    .
+                  </>
+                ),
+              },
+              {
+                q: "What can I actually lose?",
+                a: (
+                  <>
+                    Two things. <strong>Impermanent loss</strong>: a full-range position sells into
+                    a rise and buys into a fall, so if the token moves hard you end up with less
+                    value than if you had simply held — and on a volatile token that can exceed the
+                    fees entirely. And <strong>a bug</strong>: these contracts are unaudited and
+                    hold real funds.{" "}
+                    <Link href="/docs/risks" className="text-[var(--color-accent)] underline">
+                      The full list
+                    </Link>
+                    .
+                  </>
+                ),
+              },
+              {
+                q: "Why is my deposit sometimes refused?",
+                a: (
+                  <>
+                    A USDC-only deposit makes the vault swap half your input, and it will only do
+                    that when the pool&apos;s spot price sits close to its own 30-minute average.
+                    If the token has just moved sharply that check fails, and the deposit is paused
+                    rather than executed at a dislocated price. Supplying both sides never swaps,
+                    so it always works. Withdrawals and claims are never affected.
+                  </>
+                ),
+              },
+              {
+                q: "What do you charge?",
+                a: (
+                  <>
+                    A <strong>0.5% entry fee</strong>, and <strong>10% of the fees a pool
+                    produces</strong>. The protocol fee already sits at its own hard ceiling, so it
+                    can be lowered but never raised — the rate you read on the day you deposit is
+                    the worst it will ever be. No exit fee and no lockup.{" "}
+                    <Link href="/docs/fees" className="text-[var(--color-accent)] underline">
+                      Every charge, itemised
+                    </Link>
+                    .
+                  </>
+                ),
+              },
+              {
+                q: "Who keeps it running?",
+                a: (
+                  <>
+                    Anyone. Harvesting, compounding and recording a price are all permissionless,
+                    and none of them lets the caller redirect a cent — the conditions decide whether
+                    a call is valid, not who made it. If everyone involved in building this walked
+                    away, the vaults would keep working and the money would still come out.
+                  </>
+                ),
+              },
+              {
+                q: "Which pools can I stake in?",
+                a: (
+                  <>
+                    Any Uniswap v4 pool on Arc quoted in USDC whose hook cannot interfere with a
+                    withdrawal. That covers most launchpad tokens, Argus included. There is no
+                    allowlist: if the pool you want has no vault yet,{" "}
+                    <Link href="/pools/new" className="text-[var(--color-accent)] underline">
+                      create one yourself
+                    </Link>{" "}
+                    — doing so gives you no special rights over it.
+                  </>
+                ),
+              },
+            ]}
+          />
+        </div>
       </section>
 
       {/* --- honesty --- */}

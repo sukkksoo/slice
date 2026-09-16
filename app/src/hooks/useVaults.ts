@@ -6,6 +6,7 @@ import { useAccount, useReadContract, useReadContracts } from "wagmi";
 
 import { FACTORY_ADDRESS, factoryAbi, vaultAbi, erc20Abi } from "@/lib/contracts";
 import { streamApr, tokenValueInUsdc } from "@/lib/format";
+import { deviationBps } from "@/lib/preview";
 
 export type VaultSummary = {
   address: Address;
@@ -24,6 +25,8 @@ export type VaultSummary = {
   tvlUsdc: bigint;
   sqrtPriceX96: bigint;
   oracleWarm: boolean;
+  /** Warm AND spot within maxDeviationBps of the TWAP — the vault will only swap then. */
+  canSwap: boolean;
   rewardRate: bigint;
   periodFinish: bigint;
   pendingCompound: bigint;
@@ -48,6 +51,7 @@ const VAULT_FIELDS = [
   "pendingCompound",
   "protocolFeeBps",
   "streamBps",
+  "maxDeviationBps",
 ] as const;
 
 const FIELD_COUNT = VAULT_FIELDS.length;
@@ -175,6 +179,16 @@ export function useVaults() {
       const pendingCompound = (at(8)?.result as bigint) ?? 0n;
       const protocolFeeBps = Number((at(9)?.result as number | bigint) ?? 0);
       const streamBps = Number((at(10)?.result as number | bigint) ?? 0);
+      const maxDeviationBps = Number((at(11)?.result as number | bigint) ?? 0);
+
+      // Being warm and being inside the band are different conditions, and they come apart
+      // exactly when a sparse keeper leaves a long averaging window. A card that reads
+      // "Live" while the vault page refuses the deposit is worse than either alone.
+      const twapSqrtPriceX96 = prices?.[2] ?? 0n;
+      const canSwap =
+        oracleWarm &&
+        maxDeviationBps > 0 &&
+        deviationBps(sqrtPriceX96, twapSqrtPriceX96) <= maxDeviationBps;
 
       const userShares = (at(FIELD_COUNT + 1)?.result as bigint) ?? 0n;
       const userEarned = (at(FIELD_COUNT + 2)?.result as bigint) ?? 0n;
@@ -201,6 +215,7 @@ export function useVaults() {
           tvlUsdc,
           sqrtPriceX96,
           oracleWarm,
+          canSwap,
           rewardRate,
           periodFinish,
           pendingCompound,

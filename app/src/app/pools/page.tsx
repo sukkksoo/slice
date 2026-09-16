@@ -137,7 +137,7 @@ export default function PoolsPage() {
                       <Td muted>{formatUsdCompact(v.pendingCompound)}</Td>
                       <Td muted>{(v.streamBps / 100).toFixed(0)}% stream</Td>
                       <td className="px-4 py-3.5 text-right">
-                        <LiveBadge warm={v.oracleWarm} />
+                        <LiveBadge warm={v.canSwap} />
                       </td>
                       <td className="py-3.5 pl-4 pr-6 text-right">
                         {v.userShares > 0n ? (
