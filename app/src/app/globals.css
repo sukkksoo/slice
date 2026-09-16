@@ -1,67 +1,67 @@
 @import "tailwindcss";
 
 /*
- * Design system — Arc / Circle palette.
+ * Design system — deep navy.
  *
- * Circle's identity is a deep purple ("licorice", #29233b) on a canvas that is deliberately never
- * neutral white: it is always a pale blue-lavender. That periwinkle canvas plus Circle blue is what
- * makes the family recognisable, so the theme is built on those rather than on a generic dark
- * dashboard. Accents run blue -> violet -> cyan, with a separate mint reserved for "up" so gains
- * never compete with brand colour for attention.
+ * Circle's identity is a licorice purple on pale periwinkle; this inverts it, keeping the blue →
+ * violet → cyan accent run and dropping the canvas to a near-black navy so those accents carry the
+ * page. On dark the usual trap is pure black plus pure white: it vibrates, and every surface reads
+ * flat. The canvas is therefore blue-black rather than neutral, surfaces step up in luminance
+ * rather than in opacity, and body text stops short of white.
+ *
+ * Mint stays reserved for "up" so a gain never competes with brand colour for attention.
  */
 @theme {
-  /* canvas + surfaces
-   *
-   * The canvas is deeper than the panels sitting on it, so a card reads as raised without relying
-   * on shadow alone. Panels stay white: against a periwinkle ground that is what gives the page
-   * its contrast, and dropping them to grey collapses the whole hierarchy. */
-  --color-bg: #dde1f5;
-  --color-bg-deep: #c9cfec;
-  --color-surface: #ffffff;
-  --color-surface-2: #f2f4fd;
-  --color-surface-3: #e6e9f9;
-  --color-border: #ccd2ec;
-  --color-border-strong: #aab2dc;
+  /* canvas + surfaces — each step is a lift in luminance, so depth survives without heavy shadow */
+  --color-bg: #070b1a;
+  --color-bg-deep: #04060f;
+  --color-surface: #101731;
+  --color-surface-2: #161f3f;
+  --color-surface-3: #1e284c;
+  --color-border: #232e57;
+  --color-border-strong: #33417a;
 
-  /* text — Circle licorice and its tints */
-  --color-text: #221d33;
-  --color-muted: #5b5780;
-  --color-dim: #8b88a8;
+  /* text — stops short of white, which glares against a dark canvas */
+  --color-text: #e8ecfb;
+  --color-muted: #9aa5cc;
+  --color-dim: #6b76a0;
 
-  /* brand */
-  --color-accent: #3b6ff0;
-  --color-accent-bright: #5b8cff;
-  --color-accent-deep: #2452c9;
-  --color-accent-dim: #e4ebff;
-  --color-violet: #6e5ae6;
-  --color-violet-dim: #ece7fe;
-  --color-cyan: #17b9d6;
-  --color-cyan-dim: #dcf5fa;
+  /* brand — lifted for contrast against navy; the light theme's blues go muddy here */
+  --color-accent: #5b8cff;
+  --color-accent-bright: #7aa5ff;
+  --color-accent-deep: #a8c3ff;
+  --color-accent-dim: #16224a;
+  --color-violet: #8b7aff;
+  --color-violet-dim: #1d1b45;
+  --color-cyan: #3ddbf0;
+  --color-cyan-dim: #0e2b38;
 
   /* semantic */
-  --color-up: #0e9f6e;
-  --color-up-dim: #dcf5ec;
-  --color-down: #e0374a;
-  --color-warn: #b06f00;
-  --color-warn-dim: #fdf0d8;
-  --color-danger: #e0374a;
+  --color-up: #2fd39a;
+  --color-up-dim: #0d2f2a;
+  --color-down: #ff5f72;
+  --color-warn: #f0b429;
+  --color-warn-dim: #2e2510;
+  --color-danger: #ff5f72;
 
   --radius-panel: 16px;
 }
 
 html {
   background: var(--color-bg);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 :root {
   --ui-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --ui-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
 
-  --shadow-sm: 0 1px 2px rgba(34, 29, 51, 0.05), 0 1px 3px rgba(34, 29, 51, 0.04);
-  --shadow-md: 0 2px 4px rgba(34, 29, 51, 0.04), 0 8px 24px -8px rgba(34, 29, 51, 0.12);
-  --shadow-lg: 0 4px 8px rgba(34, 29, 51, 0.05), 0 20px 48px -16px rgba(34, 29, 51, 0.18);
-  --shadow-brand: 0 6px 20px -6px rgba(59, 111, 240, 0.45);
+  /* On dark, a drop shadow is invisible — the depth cue is an inset highlight along the top edge,
+     as if a light source sat above the page, plus a deeper ambient beneath. */
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px -12px rgba(0, 0, 0, 0.75);
+  --shadow-lg: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 28px 64px -20px rgba(0, 0, 0, 0.85);
+  --shadow-brand: 0 8px 28px -8px rgba(91, 140, 255, 0.55);
 }
 
 body {
@@ -83,9 +83,10 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(38rem 26rem at 12% 4%, rgba(91, 140, 255, 0.28), transparent 62%),
-    radial-gradient(34rem 24rem at 88% 0%, rgba(110, 90, 230, 0.22), transparent 58%),
-    radial-gradient(30rem 22rem at 70% 42%, rgba(23, 185, 214, 0.16), transparent 60%);
+    radial-gradient(42rem 30rem at 10% 0%, rgba(91, 140, 255, 0.20), transparent 60%),
+    radial-gradient(38rem 28rem at 92% 6%, rgba(139, 122, 255, 0.17), transparent 58%),
+    radial-gradient(34rem 26rem at 72% 46%, rgba(61, 219, 240, 0.10), transparent 60%),
+    radial-gradient(30rem 24rem at 24% 78%, rgba(91, 140, 255, 0.09), transparent 62%);
   animation: sl-wash 30s ease-in-out infinite;
 }
 
@@ -112,10 +113,10 @@ body > * {
 
 /* Frosted, for things that float over the colour field. */
 .glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(16, 23, 49, 0.66);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-lg);
 }
@@ -445,4 +446,144 @@ code {
 }
 .slider:focus-visible {
   box-shadow: 0 0 0 3px var(--color-accent-dim);
+}
+
+/* --- motion ---------------------------------------------------------------------------------
+ *
+ * Everything below is decorative, so all of it stops under prefers-reduced-motion at the end of
+ * this block. On a page about money, movement should draw the eye to something that is genuinely
+ * changing — a live price, a figure being counted — and never sit behind text.
+ */
+
+/* Seamless horizontal scroll: the track holds two identical groups and travels exactly half its
+   width, so the reset lands on a pixel-identical frame. */
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: sl-marquee linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+.marquee-group {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+@keyframes sl-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* The dot at the live end of a sparkline. */
+.spark-pulse {
+  transform-origin: center;
+  animation: sl-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes sl-ping {
+  0%        { transform: scale(1); opacity: 0.6; }
+  70%, 100% { transform: scale(3.2); opacity: 0; }
+}
+
+/* A slow sheen across a surface, for the one or two elements that should feel alive. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.07) 50%, transparent 62%);
+  transform: translateX(-100%);
+  animation: sl-sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes sl-sheen {
+  0%, 62% { transform: translateX(-100%); }
+  100%    { transform: translateX(100%); }
+}
+
+/* A hairline that travels the top edge of a panel, marking it as live. */
+.edge-run {
+  position: relative;
+}
+.edge-run::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-cyan), transparent);
+  animation: sl-edge 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes sl-edge {
+  0%, 100% { transform: translateX(-30%); opacity: 0; }
+  12%, 88% { opacity: 1; }
+  50%      { transform: translateX(200%); }
+}
+
+/* A gradient that drifts through the brand hues, for headline text. */
+.grad-text {
+  background: linear-gradient(
+    100deg,
+    var(--color-accent-bright),
+    var(--color-violet),
+    var(--color-cyan),
+    var(--color-accent-bright)
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sl-grad 9s ease infinite;
+}
+@keyframes sl-grad {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* A slow vertical float, for anything meant to hover rather than sit. */
+.float {
+  animation: sl-float 7s ease-in-out infinite;
+}
+@keyframes sl-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+
+/* A dark canvas makes a plain 1px border look painted on. A gradient edge that brightens on hover
+   gives a card somewhere to go without moving it. */
+.lift {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+.lift:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .spark-pulse,
+  .sheen::after,
+  .edge-run::before,
+  .grad-text,
+  .float,
+  body::before {
+    animation: none !important;
+  }
+  .lift:hover {
+    transform: none;
+  }
+  .marquee {
+    overflow-x: auto;
+  }
 }

@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Nav } from "@/components/Nav";
 import { Providers } from "./providers";
 import "./globals.css";
+import { SocialDock } from "@/components/Social";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Nav />
           <main className="mx-auto max-w-[1180px] px-5 py-10 sm:px-8">{children}</main>
           <Footer />
+          <SocialDock />
         </Providers>
       </body>
     </html>

@@ -5,6 +5,8 @@ import { useMemo } from "react";
 
 import { FlowDiagram } from "@/components/Brand";
 import { ComparisonTable, Faq, FeeWaterfall, YieldCalculator } from "@/components/explain";
+import { LivePrice, LiveTicker } from "@/components/live";
+import { Reveal, TiltCard } from "@/components/motion";
 import { LiveBadge, PairAvatar, StatBar } from "@/components/ui";
 import { useVaults } from "@/hooks/useVaults";
 import { formatPercent, formatUsdCompact } from "@/lib/format";
@@ -39,7 +41,7 @@ export default function LandingPage() {
         <h1 className="mt-7 max-w-3xl text-[40px] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[58px]">
           Liquidity that
           <br />
-          <span className="accent-text">pays you back.</span>
+          <span className="grad-text">pays you back.</span>
         </h1>
 
         <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-[var(--color-muted)]">
@@ -61,9 +63,10 @@ export default function LandingPage() {
 
         {/* A real pool, live, rather than a decorative illustration. */}
         {featured && (
+          <TiltCard className="hidden lg:block">
           <Link
             href={`/vault/${featured.address}`}
-            className="panel-raised hidden p-6 lg:block"
+            className="panel-raised sheen lift block p-6"
           >
             <div className="flex items-center justify-between">
               <span className="label">Live pool</span>
@@ -101,7 +104,15 @@ export default function LandingPage() {
 
             <div className="btn btn-ghost mt-6 w-full">Stake into this pool</div>
           </Link>
+          <div className="mt-4">
+            <LivePrice vault={featured} />
+          </div>
+          </TiltCard>
         )}
+      </section>
+
+      <section className="-mt-14">
+        <LiveTicker />
       </section>
 
       {configured && (
@@ -242,18 +253,21 @@ export default function LandingPage() {
       </section>
 
       {/* --- what it would actually pay --- */}
+      <Reveal>
       <section>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em]">What would it pay you?</h2>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">
           Fee income is volume multiplied by the pool&apos;s fee, split by how much of the vault you
           own. Move the inputs and watch it — there is no hidden model.
         </p>
-        <div className="panel mt-7 px-6 py-7">
+        <div className="panel edge-run mt-7 px-6 py-7">
           <YieldCalculator />
         </div>
       </section>
+      </Reveal>
 
       {/* --- versus the alternatives --- */}
+      <Reveal>
       <section>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em]">
           Against the two things you would do otherwise
@@ -267,8 +281,10 @@ export default function LandingPage() {
           <ComparisonTable />
         </div>
       </section>
+      </Reveal>
 
       {/* --- questions --- */}
+      <Reveal>
       <section>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Questions worth asking</h2>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">
@@ -365,29 +381,50 @@ export default function LandingPage() {
           />
         </div>
       </section>
+      </Reveal>
 
-      {/* --- honesty --- */}
-      <section className="panel-raised overflow-hidden">
-        <div className="border-l-2 border-[var(--color-warn)] px-6 py-6 sm:px-8">
-          <h2 className="text-base font-semibold text-[var(--color-warn)]">
-            This is unaudited software
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
-            These contracts hold user funds and have not been reviewed by a third party. Development
-            surfaced two fee-leak bugs and one bug that could have frozen every vault permanently.
-            All three are fixed and covered by tests — but finding three real defects is evidence
-            that more exist, not that the code is now clean.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link href="/docs/risks" className="btn btn-ghost">
-              What can go wrong
-            </Link>
-            <Link href="/docs/security" className="btn btn-ghost">
-              Security model
-            </Link>
+      {/* --- where it runs --- */}
+      <Reveal>
+        <section className="panel-raised sheen overflow-hidden">
+          <div className="grid gap-8 px-6 py-8 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <div className="label">Built on Arc</div>
+              <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.02em]">
+                A chain where gas is already the unit of account
+              </h2>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--color-muted)]">
+                Arc settles in USDC and charges gas in it too, so a vault denominated in USDC never
+                has to hold a second asset just to pay for its own upkeep. Harvesting, compounding
+                and claiming are all priced in the same unit the yield arrives in — which is why
+                the rewards here are USDC rather than a token you would have to sell.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/docs/arc" className="btn btn-ghost">
+                  Building on Arc
+                </Link>
+                <Link href="/docs/how-it-works" className="btn btn-ghost">
+                  Read the mechanics
+                </Link>
+              </div>
+            </div>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 self-center">
+              {[
+                ["Settlement", "USDC"],
+                ["Gas paid in", "USDC"],
+                ["Pool type", "Uniswap v4"],
+                ["Position", "Full range"],
+                ["Payout", "Streamed 7 days"],
+                ["Lockup", "None"],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <dt className="label">{k}</dt>
+                  <dd className="mt-1 text-[15px] font-semibold">{v}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-        </div>
-      </section>
+        </section>
+      </Reveal>
     </div>
   );
 }

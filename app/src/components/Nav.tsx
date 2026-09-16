@@ -46,7 +46,7 @@ export function Nav() {
   }, [pickerOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.72)] backdrop-blur-xl backdrop-saturate-150">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(7,11,26,0.72)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1180px] items-center gap-3 px-4 py-3.5 sm:gap-6 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <Logo size={32} />

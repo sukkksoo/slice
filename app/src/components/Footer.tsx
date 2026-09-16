@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/Brand";
 import { targetChain } from "@/lib/chain";
+import { SocialLinks } from "@/components/Social";
 
 const GROUPS = [
   {
@@ -79,6 +80,9 @@ export function Footer() {
           </span>
           <span>Uniswap v4</span>
           <span>Gas paid in USDC</span>
+          <span className="ml-auto">
+            <SocialLinks />
+          </span>
         </div>
       </div>
     </footer>
