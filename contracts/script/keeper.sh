@@ -46,7 +46,24 @@ set -euo pipefail
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
 FACTORY="${SLICE_FACTORY:-0x219DF226816e4CCcAAF8C7fAB7469837e857c05b}"
 INTERVAL="${KEEPER_INTERVAL:-90}"
-: "${PRIVATE_KEY:?set PRIVATE_KEY}"
+# Two ways to sign, because the two places this runs want different things. An encrypted keystore
+# is right on a laptop, where a person can type a password; a raw key is what CI has to use, since
+# there is nobody there to prompt.
+#
+#   KEEPER_ACCOUNT=slice-keeper KEEPER_PASSWORD=...  ./script/keeper.sh   # keystore
+#   PRIVATE_KEY=0x...                                ./script/keeper.sh   # raw key
+if [ -n "${KEEPER_ACCOUNT:-}" ]; then
+  SIGNER=(--account "$KEEPER_ACCOUNT")
+  # Unattended, so the password cannot be prompted for. cast reads it from this variable.
+  [ -n "${KEEPER_PASSWORD:-}" ] && export CAST_PASSWORD="$KEEPER_PASSWORD"
+  if [ -z "${CAST_PASSWORD:-}" ]; then
+    echo "KEEPER_ACCOUNT is set but KEEPER_PASSWORD is not. The keeper runs unattended, so it"
+    echo "cannot stop to ask for the keystore password on every transaction."
+    exit 1
+  fi
+else
+  : "${PRIVATE_KEY:?set PRIVATE_KEY, or KEEPER_ACCOUNT for a keystore}"
+fi
 
 # Below ~58s a full ring cannot span the 30-minute window, so the oracle would never warm.
 # Refuse rather than run a keeper that burns gas forever and unlocks nothing.
@@ -56,12 +73,15 @@ if [ "$INTERVAL" -lt 60 ]; then
   echo "Use 90 (the default), or anything from 60 upward."
   exit 1
 fi
-case "$PRIVATE_KEY" in 0x*) ;; *) PRIVATE_KEY="0x$PRIVATE_KEY";; esac
+if [ -z "${SIGNER:-}" ]; then
+  case "$PRIVATE_KEY" in 0x*) ;; *) PRIVATE_KEY="0x$PRIVATE_KEY";; esac
+  SIGNER=(--private-key "$PRIVATE_KEY")
+fi
 
 ONCE=false
 [ "${1:-}" = "--once" ] && ONCE=true
 
-send() { cast send "$@" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; }
+send() { cast send "$@" --rpc-url "$RPC" "${SIGNER[@]}" >/dev/null 2>&1; }
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 round() {
