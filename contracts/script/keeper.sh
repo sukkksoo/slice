@@ -125,59 +125,69 @@ LAST_OUT=""
 send() { LAST_OUT=$(cast send --async "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1); }
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
+# Poke a vault, then harvest it if its oracle can price the swap.
+service() {
+  local vault="$1" label="$2" warm pending
+
+  if ! send "$vault" "poke()"; then
+    # The reason matters: a bad password, an empty wallet and an RPC timeout all look the same
+    # otherwise and need completely different fixes. Taken from the call that actually failed.
+    local why
+    why=$(printf '%s' "$LAST_OUT" | grep -iE "error|warning|reverted|timeout|refused" | head -1)
+    echo "$(date -u +%T) $vault poke failed: ${why:-see above}"
+    return
+  fi
+
+  warm=$(call "$vault" "prices()(bool,uint160,uint160)" | head -1)
+  pending=$(call "$vault" "pendingAssetFees()(uint256)")
+
+  # Harvest only once the oracle can price the swap. Calling it cold still works — it simply
+  # defers the token side — but it burns gas to move fees from one pending bucket to another.
+  if [ "$warm" = "true" ]; then
+    send "$vault" "harvest()" || true
+    echo "$(date -u +%T) $vault poked, warm, harvested$label"
+  else
+    echo "$(date -u +%T) $vault poked, still warming (deferred fees: ${pending:-0})$label"
+  fi
+}
+
 round() {
-  local count vault warm pending supply skipped warmed_empty
+  local count i vault supply
   count=$(call "$FACTORY" "vaultCount()(uint256)")
   [ -n "$count" ] || { echo "$(date -u +%T) cannot reach the factory"; return; }
-  skipped=0
-  warmed_empty=0
 
+  # Sort the vaults into those holding deposits and those not, before poking anything.
+  #
+  # Creating a vault is permissionless, so anyone may add one and whoever runs this pays for it
+  # from then on. Serving every empty vault lets a stranger set the bill; serving none deadlocks a
+  # newly listed pool, since a single-sided deposit needs a warm oracle and the oracle will not
+  # warm until somebody deposits.
+  #
+  # So: every funded vault is always served, and a few empty ones are too — but the empty ones are
+  # taken NEWEST FIRST. Walking in creation order served the oldest empty vaults instead, which
+  # meant that once a few abandoned pools existed, a pool listed a minute ago would be skipped and
+  # never warm at all. The newest empty vault is precisely the one somebody is waiting on.
+  local funded=() empty=()
   for ((i = 0; i < count; i++)); do
     vault=$(call "$FACTORY" "allVaults(uint256)(address)" "$i")
     [ -n "$vault" ] || continue
-
-    # Empty vaults: warm the first few, skip the rest.
-    #
-    # Creating a vault is permissionless, so anyone may add one and whoever runs this pays for it
-    # from then on. Skipping every empty vault caps that cost — but on its own it deadlocks a new
-    # pool, because a single-sided deposit needs a warm oracle and the oracle will not warm until
-    # someone has deposited. The first depositor would have to be told to supply both sides.
-    #
-    # So a small number of empty vaults are kept warm, which is what makes a freshly listed pool
-    # usable immediately, and the rest are skipped, which is what stops fifty stranger-created
-    # vaults from setting the bill. Raise or lower with KEEPER_MAX_EMPTY.
     supply=$(call "$vault" "totalSupply()(uint256)")
-    if [ "${supply:-0}" = "0" ] && [ "$warmed_empty" -ge "$MAX_EMPTY" ]; then
-      skipped=$((skipped + 1))
-      continue
-    fi
-    [ "${supply:-0}" = "0" ] && warmed_empty=$((warmed_empty + 1))
-
-    if ! send "$vault" "poke()"; then
-      # The reason matters: a bad password, an empty wallet and an RPC timeout all look the same
-      # otherwise and need completely different fixes. Taken from the call that actually failed.
-      why=$(printf '%s' "$LAST_OUT" | grep -iE "error|warning|reverted|timeout|refused" | head -1)
-      echo "$(date -u +%T) $vault poke failed: ${why:-see above}"
-      continue
-    fi
-
-    warm=$(call "$vault" "prices()(bool,uint160,uint160)" | head -1)
-
-    # Harvest only once the oracle can price the swap. Calling it cold still works — it simply
-    # defers the token side — but it burns gas to move fees from one pending bucket to another.
-    pending=$(call "$vault" "pendingAssetFees()(uint256)")
-    if [ "$warm" = "true" ]; then
-      send "$vault" "harvest()" || true
-      echo "$(date -u +%T) $vault poked, warm, harvested"
-    else
-      echo "$(date -u +%T) $vault poked, still warming (deferred fees: ${pending:-0})"
-    fi
+    if [ "${supply:-0}" = "0" ]; then empty+=("$vault"); else funded+=("$vault"); fi
   done
 
-  # Say so rather than going quiet: a keeper printing nothing looks broken, and "every vault is
-  # empty" is a fact worth seeing.
+  for vault in "${funded[@]:-}"; do
+    [ -n "$vault" ] && service "$vault" ""
+  done
+
+  local served=0 j
+  for ((j = ${#empty[@]} - 1; j >= 0 && served < MAX_EMPTY; j--)); do
+    service "${empty[j]}" "  [no deposits yet]"
+    served=$((served + 1))
+  done
+
+  local skipped=$(( ${#empty[@]} - served ))
   if [ "$skipped" -gt 0 ]; then
-    echo "$(date -u +%T) skipped $skipped empty vault(s) of $count — nothing staked, nothing to keep warm"
+    echo "$(date -u +%T) skipped $skipped empty vault(s) — nothing staked, nothing to keep warm"
   fi
 }
 
