@@ -63,11 +63,15 @@ ge_bigint() {
 
 GAS=$(cast balance "$ADDR" --rpc-url "$RPC")
 echo "Gas balance (18dp native USDC): $GAS"
-# 10.13M gas at 45 gwei is ~0.46 USDC; insist on 5 USDC so a vault and a seed also fit.
-if ! ge_bigint "$GAS" 5000000000000000000; then
+# A full first run — factory, one vault, a deposit and a withdrawal — is about 15.7M gas.
+# Mainnet gas price moves a lot (225 gwei and 485 gwei both observed on the same day), so that
+# is roughly 3.5-7.5 USDC depending on when you go. Insist on 10 so a spike cannot strand the
+# deploy half-finished, with the factory live and no vault.
+if ! ge_bigint "$GAS" 10000000000000000000; then
   echo
   echo "Not enough USDC for gas. Arc charges gas in USDC."
-  echo "Send at least 5 USDC to $ADDR on Arc mainnet, then run this again."
+  echo "Send at least 10 USDC to $ADDR on Arc mainnet (15-20 is comfortable), then run again."
+  echo "Current gas price: $(cast gas-price --rpc-url "$RPC") wei"
   exit 1
 fi
 

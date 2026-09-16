@@ -38,13 +38,17 @@ nothing else.
 
 Arc pays gas in USDC. Measured from dry runs:
 
-| Step | Gas | Cost @ 45 gwei |
+| Step | Gas | Cost @ 225 gwei |
 |---|---|---|
-| Factory + deployer + oracle library | 10.1M | ~0.46 USDC |
-| One vault | 4.2M | ~0.19 USDC |
-| Seeding a position | varies | fund generously |
+| Factory + deployer + oracle library | 10.1M | ~2.28 USDC |
+| One vault | 4.2M | ~0.95 USDC |
+| A deposit + a withdrawal | 1.1M | ~0.25 USDC |
+| **Full first run** | **15.7M** | **~3.5 USDC** |
 
-Hold at least **25 USDC** for the deploy plus whatever liquidity you intend to seed.
+Arc's gas price moves a lot — 225 gwei and 485 gwei were both seen on the same day, so the
+same deploy is anywhere from 3.5 to 7.5 USDC. Hold at least **10 USDC**, and 15-20 is
+comfortable. The script refuses to start below 10 so a price spike cannot strand you with a
+live factory and no vault.
 
 **3. The owner address needs its own gas.**
 
