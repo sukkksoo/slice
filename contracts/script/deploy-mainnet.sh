@@ -22,15 +22,28 @@ if [ -e "$KEYSTORE" ]; then
   SIGNER=(--account slice-deployer)
   echo "Signer: keystore 'slice-deployer'"
   ADDR=$(cast wallet address --account slice-deployer)
+elif [ -n "${PRIVATE_KEY:-}" ]; then
+  # Supplied by the environment, e.g.  PRIVATE_KEY=0x... ./script/deploy-mainnet.sh
+  PK="$PRIVATE_KEY"
+  echo "Signer: PRIVATE_KEY from the environment"
 else
-  echo "No keystore found at $KEYSTORE"
-  echo "Paste the deployer private key (input is hidden, nothing is stored):"
+  echo "No keystore at $KEYSTORE, and PRIVATE_KEY is not set."
+  echo
+  echo "Paste the deployer private key. Input is hidden and nothing is written to disk."
+  echo "In Git Bash, Ctrl+V does NOT paste — use Shift+Insert, or right-click the window."
+  echo "Or press Ctrl+C and run:  PRIVATE_KEY=<key> ./script/deploy-mainnet.sh"
+  echo
+  printf "key: "
   read -rs PK
   echo
-  [ -n "$PK" ] || { echo "empty key"; exit 1; }
-  export PK
+  [ -n "$PK" ] || { echo "Empty key — nothing read. See the paste note above."; exit 1; }
+fi
+
+# Normalise before deriving anything: cast wants the 0x prefix, and a pasted key often lacks it.
+if [ -n "${PK:-}" ]; then
+  case "$PK" in 0x*) ;; *) PK="0x$PK";; esac
   SIGNER=(--private-key "$PK")
-  ADDR=$(cast wallet address --private-key "$PK")
+  ADDR=$(cast wallet address --private-key "$PK")     || { echo "That does not parse as a private key (expected 64 hex characters)."; exit 1; }
 fi
 echo "Deployer: $ADDR"
 
