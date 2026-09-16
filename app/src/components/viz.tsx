@@ -117,7 +117,14 @@ export function StreamRing({
   const finish = Number(periodFinish);
   const remaining = Math.max(0, finish - now);
   const elapsed = Math.max(0, Math.min(durationSeconds, durationSeconds - remaining));
-  const pct = durationSeconds === 0 ? 0 : elapsed / durationSeconds;
+
+  // A vault that has never harvested has periodFinish == 0, which walks the same arithmetic as a
+  // stream that ran to completion and would fill the ring to 100%. They are not the same state:
+  // one has paid out a full week of fees, the other has never paid anything. Showing a complete
+  // ring on every freshly deployed vault reads as "finished" at exactly the moment it means
+  // "nothing has happened yet", so a never-started stream gets an empty ring and no percentage.
+  const started = finish > 0;
+  const pct = !started || durationSeconds === 0 ? 0 : elapsed / durationSeconds;
 
   const r = (size - 14) / 2;
   const c = 2 * Math.PI * r;
@@ -158,7 +165,9 @@ export function StreamRing({
           />
         </svg>
         <div className="absolute inset-0 grid place-items-center">
-          <span className="num text-lg font-semibold">{(pct * 100).toFixed(0)}%</span>
+          <span className="num text-lg font-semibold">
+            {started ? `${(pct * 100).toFixed(0)}%` : "—"}
+          </span>
         </div>
       </div>
 
@@ -172,8 +181,10 @@ export function StreamRing({
               </span>{" "}
               left of this seven-day payout.
             </>
+          ) : started ? (
+            "This stream has finished. The next harvest starts another."
           ) : (
-            "No stream running. The next harvest starts one."
+            "No stream yet. The first harvest starts one."
           )}
         </p>
       </div>
