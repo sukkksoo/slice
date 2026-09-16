@@ -86,6 +86,20 @@ export default function Staking() {
         hour and decays as the seven-day stream unwinds.
       </P>
       <P>Treat it as a snapshot of recent trading activity, not a promise about the next year.</P>
+      <H2 id="slippage">Your floor is written into the transaction</H2>
+      <P>
+        Every deposit and withdrawal carries a minimum. Before you sign, the app quotes what the
+        call should return at the current price — shares on the way in, USDC and the token on the
+        way out — and sends that figure less your slippage tolerance as the floor. If the pool
+        moves between quoting and confirming so you would receive less, the transaction reverts and
+        nothing is taken. The default tolerance is 0.5%; it is adjustable, and remembered per
+        browser.
+      </P>
+      <P>
+        Approvals are for the exact amount you enter, not unlimited. A deposit can never move more
+        than the maximum you typed, so an open-ended approval would buy nothing except exposure to
+        any bug in an unaudited contract.
+      </P>
     </>
   );
 }

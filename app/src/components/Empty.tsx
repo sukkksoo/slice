@@ -46,8 +46,8 @@ export function NoVaults() {
         Anyone can create the vault for a Uniswap v4 pool that quotes USDC. The pool has to be
         initialized first.
       </p>
-      <Link href="/creator" className="btn btn-primary mt-6">
-        Create a vault
+      <Link href="/pools/new" className="btn btn-primary mt-6">
+        List a pool
       </Link>
     </Shell>
   );

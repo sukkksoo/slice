@@ -77,3 +77,29 @@ export function streamApr(rewardRate: bigint, tvlUsdc6: bigint, periodFinish: bi
   const perYear = (rewardRate * 31_536_000n) / 10n ** 18n;
   return (Number(perYear) / Number(tvlUsdc6)) * 100;
 }
+
+/**
+ * A token amount to `sig` significant figures.
+ *
+ * Vault shares are 18-decimal, but a 6-decimal/18-decimal pair mints liquidity in the millions of
+ * units, not the quintillions — so a real position is something like 0.00000199 shares and a fixed
+ * two- or four-decimal formatter renders every one of them as "0". Significant figures show the
+ * number that is actually there.
+ */
+export function formatSig(raw: bigint, decimals: number, sig = 4): string {
+  if (raw === 0n) return "0";
+  const negative = raw < 0n;
+  const full = formatAmount(negative ? -raw : raw, decimals, decimals).replace(/,/g, "");
+  const [whole, frac = ""] = full.split(".");
+  let out: string;
+  if (whole !== "0") {
+    const keep = Math.max(0, sig - whole.length);
+    const cut = frac.slice(0, keep).replace(/0+$/, "");
+    out = `${BigInt(whole).toLocaleString("en-US")}${cut ? `.${cut}` : ""}`;
+  } else {
+    const lead = (frac.match(/^0*/)?.[0] ?? "").length;
+    const cut = frac.slice(0, lead + sig).replace(/0+$/, "");
+    out = cut ? `0.${cut}` : "0";
+  }
+  return negative ? `-${out}` : out;
+}
