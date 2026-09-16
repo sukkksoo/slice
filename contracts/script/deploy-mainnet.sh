@@ -38,10 +38,20 @@ echo "Deployer: $ADDR"
 CHAIN=$(cast chain-id --rpc-url "$RPC")
 [ "$CHAIN" = "5042" ] || { echo "Expected Arc mainnet (5042), got $CHAIN"; exit 1; }
 
+# Balances are 18-decimal and overflow every shell arithmetic context, so compare as bigints:
+# by digit count first, then lexicographically once the lengths match.
+shopt -s extglob
+ge_bigint() {
+  local a="${1##+(0)}" b="${2##+(0)}"
+  a="${a:-0}"; b="${b:-0}"
+  if [ "${#a}" -ne "${#b}" ]; then [ "${#a}" -gt "${#b}" ]; return $?; fi
+  [ "$a" \> "$b" ] || [ "$a" = "$b" ]
+}
+
 GAS=$(cast balance "$ADDR" --rpc-url "$RPC")
 echo "Gas balance (18dp native USDC): $GAS"
 # 10.13M gas at 45 gwei is ~0.46 USDC; insist on 5 USDC so a vault and a seed also fit.
-if [ "$(echo "$GAS" | cut -c1-19 | awk '{print ($0 < 5000000000000000000) ? 1 : 0}')" = "1" ]; then
+if ! ge_bigint "$GAS" 5000000000000000000; then
   echo
   echo "Not enough USDC for gas. Arc charges gas in USDC."
   echo "Send at least 5 USDC to $ADDR on Arc mainnet, then run this again."
