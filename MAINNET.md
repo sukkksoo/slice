@@ -1,5 +1,16 @@
 # Arc mainnet deployment runbook
 
+## Deployed 2026-09-16
+
+| | |
+|---|---|
+| VaultFactory | `0x219DF226816e4CCcAAF8C7fAB7469837e857c05b` |
+| VaultDeployer | `0x1782B001f635BE1f19BB4B5ef1B9E8F1d2e64759` |
+| Vault — CINU/USDC (Argus) | `0x8d4fE16C8cc34809DB648142E5F7473a1F604927` |
+
+Bytecode verified identical to this repo for all three. Cost 0.73 USDC at 58 gwei.
+The rest of this document is the procedure, kept for the next pool and the next network.
+
 Audience: whoever holds the deploying key. Every command here broadcasts real
 transactions and spends real USDC. Read the preconditions before running any of them.
 

@@ -14,6 +14,8 @@ export const DEPLOYMENTS: Record<number, { factory: Address; vaultDeployer: Addr
     factory: "0xc013A0a50A0841d1341EA85461431411DC4cb514",
     vaultDeployer: "0xFDfd46103A5D507827E59aa68247537657284c47",
   },
-  // Arc mainnet: not deployed. The contracts are unaudited; testnet is the ceiling for now.
-  [arc.id]: undefined,
+  [arc.id]: {
+    factory: "0x219DF226816e4CCcAAF8C7fAB7469837e857c05b",
+    vaultDeployer: "0x1782B001f635BE1f19BB4B5ef1B9E8F1d2e64759",
+  },
 };

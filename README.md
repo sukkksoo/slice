@@ -9,8 +9,10 @@ and streamed over seven days.
 **For token creators** — route any configurable share of trading fees, or a manually funded USDC
 budget, into pool liquidity automatically on-chain, on a schedule or at market-cap milestones.
 
-**Live on Arc testnet** — app at [delta-arc](https://delta-arc-sukiransandu-9022s-projects.vercel.app),
-factory at `0xc013A0a50A0841d1341EA85461431411DC4cb514` (chain 5042002).
+**Live on Arc mainnet** — app at [delta-arc](https://delta-arc-sukiransandu-9022s-projects.vercel.app),
+factory at `0x219DF226816e4CCcAAF8C7fAB7469837e857c05b` (chain 5042).
+First vault: [CINU/USDC](https://explorer.arc.io/address/0x8d4fE16C8cc34809DB648142E5F7473a1F604927)
+on an Argus pool. Testnet factory `0xc013A0a50A0841d1341EA85461431411DC4cb514` (chain 5042002).
 
 > **Unaudited.** Deployed contracts hold user funds. Do not put real money in this without an
 > audit. See [Known limitations](#known-limitations).
