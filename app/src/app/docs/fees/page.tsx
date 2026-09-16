@@ -83,6 +83,49 @@ export default function Fees() {
         at all — it is the thing you are earning.
       </P>
 
+      <H2 id="pool-taxes">Launchpad taxes stack on top</H2>
+      <P>
+        Many Arc launchpads enforce a tax through a Uniswap v4 hook. That tax is not Slice&apos;s
+        and Slice cannot waive it — but it does affect which deposit route is cheaper, so it is
+        worth knowing before you stake.
+      </P>
+      <P>
+        Measured against a live <Strong>Argus</Strong> pool (CINU), pinned to a single block so the
+        price could not move mid-measurement:
+      </P>
+      <Table
+        head={["Charge", "Rate", "Who gets it"]}
+        rows={[
+          [
+            <Strong key="a">Pool fee</Strong>,
+            "1.00%",
+            "Liquidity providers — that is you, if you are staked",
+          ],
+          [<Strong key="b">Argus hook</Strong>, "3.00%", "The launchpad's splits: creator, buyback, holders"],
+          [<Strong key="c">Total per swap</Strong>, "4.00%", "Matches the hook's own totalFeeBps()"],
+        ]}
+      />
+      <P>
+        The 1% pool fee is the thing you earn, and 1% per swap is high — good for a staker. The 3%
+        hook tax only matters where Slice itself swaps.
+      </P>
+      <Callout tone="warn" title="On a taxed pool, deposit both sides">
+        Withdrawals and two-sided deposits never swap, so they pay none of the hook tax. A USDC-only
+        deposit swaps half the input, so on a 4%-per-swap pool it costs roughly{" "}
+        <Strong>2% of the deposit</Strong> — on top of the entry fee. Supplying both sides avoids it
+        entirely.
+      </Callout>
+      <P>
+        Harvesting is also a swap: converting the token side of collected fees to USDC pays the same
+        4%. Since roughly half of what a pool collects is on the token side, the drag is about 2% of
+        harvested fees — small against what the 1% pool fee brings in, but not nothing.
+      </P>
+      <P>
+        <Code>contracts/script/measure-hook-tax.sh</Code> measures this for any pool. It has to run
+        against a live node rather than a fork, because these hooks move USDC and Arc&apos;s
+        balance-move precompile does not exist in Foundry&apos;s EVM.
+      </P>
+
       <H2 id="why-pull">Why fees are collected, not pushed</H2>
       <P>
         Both the entry fee and the protocol fee accrue inside the vault and are transferred out by a

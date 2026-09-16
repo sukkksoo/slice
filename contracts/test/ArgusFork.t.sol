@@ -124,6 +124,44 @@ contract ArgusForkTest is Test {
         console2.log("asset symbol", IERC20Metadata(ARGUS_TOKEN).symbol());
     }
 
+    // --- a busier pool: CINU, and what its hook actually charges ---
+
+    address constant CINU = 0xBDBB76DB770cC99DCF3FA31C42C171b9584D6a10;
+    address constant CINU_HOOK = 0x110C4Ae6dFd0376CAB3B5367256b4C56fE2De044;
+
+    function _cinuKey() internal pure returns (PoolKey memory) {
+        return PoolKey({
+            currency0: Currency.wrap(ArcChain.USDC_ERC20),
+            currency1: Currency.wrap(CINU),
+            fee: ARGUS_FEE,
+            tickSpacing: ARGUS_TICK_SPACING,
+            hooks: IHooks(CINU_HOOK)
+        });
+    }
+
+    function test_cinuPoolIsLiveAndVaultable() public onlyForked {
+        PoolKey memory k = _cinuKey();
+        (uint160 sqrtPriceX96,,, uint24 lpFee) = manager.getSlot0(k.toId());
+        uint128 liquidity = manager.getLiquidity(k.toId());
+
+        console2.log("CINU liquidity", liquidity);
+        console2.log("CINU lpFee    ", lpFee);
+        assertGt(liquidity, 0, "no liquidity");
+        assertGt(sqrtPriceX96, 0, "not initialized");
+
+        address v = factory.createVault(k);
+        assertEq(Currency.unwrap(LiquidityVault(v).assetCurrency()), CINU, "wrong asset side");
+    }
+
+    /// @notice The hook's swap tax cannot be measured in a fork — see script/measure-hook-tax.sh.
+    ///
+    /// @dev The Argus hook transfers USDC to its treasury inside `afterSwap`, which goes through
+    ///      Arc's balance-move precompile. That has no implementation in Foundry's EVM, so any
+    ///      swap through this pool reverts in a fork even though it works on-chain. The tax is
+    ///      therefore measured with `eth_call` against a live node instead, pinned to one block so
+    ///      the pool cannot move mid-measurement. Measured repeatedly at 300 bps, plus the pool's
+    ///      own 1% — which together are the 400 the hook's `totalFeeBps()` reports.
+
     /// @notice A second vault for the same pool is refused, so there is one canonical vault.
     function test_onlyOneVaultPerArgusPool() public onlyForked {
         factory.createVault(key);
