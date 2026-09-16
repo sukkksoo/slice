@@ -1,4 +1,4 @@
-import { http, createConfig, type CreateConnectorFn } from "wagmi";
+import { http, createConfig, fallback, type CreateConnectorFn } from "wagmi";
 import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors";
 
 import { arc, arcTestnet, targetChain } from "./chain";
@@ -43,12 +43,33 @@ if (projectId) {
   );
 }
 
+/**
+ * Reads go through the site's own origin first, and straight to Arc only if that fails.
+ *
+ * A visitor's browser had every read return empty data while the same calls from the same
+ * machine, outside the browser, succeeded. Extensions that intercept calls to RPC hosts they
+ * recognise are the only thing left to differ, and one that does not know Arc can answer with
+ * an empty result instead of an error. A request to this site's own /api/rpc is not something
+ * those extensions are watching for. See src/app/api/rpc/route.ts for what the relay refuses.
+ *
+ * During server rendering there is no origin to be relative to, so the server dials Arc directly;
+ * it is not running anyone's extensions.
+ *
+ * Writes are unaffected: the visitor's wallet signs and broadcasts through its own provider, and
+ * never through these transports.
+ */
+function transportFor(chainId: number, direct: string) {
+  if (typeof window === "undefined") return http(direct);
+  const relay = `${window.location.origin}/api/rpc?chain=${chainId}`;
+  return fallback([http(relay), http(direct)], { rank: false });
+}
+
 export const config = createConfig({
   chains,
   connectors,
   transports: {
-    [arc.id]: http(),
-    [arcTestnet.id]: http(),
+    [arc.id]: transportFor(arc.id, arc.rpcUrls.default.http[0]!),
+    [arcTestnet.id]: transportFor(arcTestnet.id, arcTestnet.rpcUrls.default.http[0]!),
   },
   ssr: true,
 });

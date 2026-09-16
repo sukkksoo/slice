@@ -11,8 +11,8 @@ budget, into pool liquidity automatically on-chain, on a schedule or at market-c
 
 **Live on Arc mainnet** — app at [delta-arc](https://delta-arc-sukiransandu-9022s-projects.vercel.app),
 factory at `0x219DF226816e4CCcAAF8C7fAB7469837e857c05b` (chain 5042).
-First vault: [CINU/USDC](https://explorer.arc.io/address/0x8d4fE16C8cc34809DB648142E5F7473a1F604927)
-on an Argus pool. Testnet factory `0xc013A0a50A0841d1341EA85461431411DC4cb514` (chain 5042002).
+Vaults: [CINU/USDC](https://explorer.arc.io/address/0x8d4fE16C8cc34809DB648142E5F7473a1F604927) and
+[ARC 101/USDC](https://explorer.arc.io/address/0xC1FbE6f506BFDF57F6bf86Dba3E2D03cE87106e0), both on Argus pools. Testnet factory `0xc013A0a50A0841d1341EA85461431411DC4cb514` (chain 5042002).
 
 > **Unaudited.** Deployed contracts hold user funds. Do not put real money in this without an
 > audit. See [Known limitations](#known-limitations).
