@@ -83,8 +83,11 @@ export default function CreatorRouting() {
         you are paying attention.
       </P>
       <P>
-        Milestone mode does depend on the price oracle being fresh, which means someone has to call{" "}
-        <Code>poke()</Code> from time to time. Any vault activity does this automatically.
+        Milestone mode does depend on the vault&apos;s price average being current, which means
+        someone has to call <Code>poke()</Code> regularly — about every ninety seconds keeps the
+        average within a window the vault will act on. Deposits and withdrawals do it on the way
+        through, and Slice runs a keeper that covers every vault regardless.{" "}
+        <A href="/docs/how-it-works#keepers">Who runs it</A>. Cadence mode needs none of this.
       </P>
 
       <H2 id="steps">Setting one up</H2>

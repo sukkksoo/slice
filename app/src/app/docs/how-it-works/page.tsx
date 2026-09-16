@@ -89,25 +89,44 @@ export default function HowItWorks() {
 
       <H2 id="keepers">Who runs it</H2>
       <P>
-        Nobody has to. <Code>poke()</Code>, <Code>harvest()</Code>, <Code>compound()</Code> and{" "}
+        Anyone can. <Code>poke()</Code>, <Code>harvest()</Code>, <Code>compound()</Code> and{" "}
         <Code>collectProtocolFees()</Code> are all callable by anyone, and none of them let the
-        caller redirect funds. They exist as buttons on every vault page.
+        caller redirect funds: the conditions decide whether a call is valid, not who made it.
+        They exist as buttons on every vault page.
+      </P>
+      <P>
+        Permissionless is a statement about <Strong>who</Strong> may run it, not about whether
+        anything needs running. Two things genuinely depend on somebody calling in:
       </P>
       <UL>
         <LI>
-          <Code>poke()</Code> records a price observation — this is what keeps the price history
-          alive so conversions can happen.
+          <Code>poke()</Code> records a price observation. The vault keeps its own thirty-minute
+          average, built from the last 32 observations, and will only swap while the current price
+          sits close to that average. Single-sided deposits and the conversion of token-side fees
+          both need it. A pool with nobody trading through the vault does not refresh it by itself,
+          so a keeper pokes every vault roughly every ninety seconds. Slice runs one; it covers
+          every vault the factory knows about, including pools listed by strangers, and it skips
+          empty ones.
         </LI>
         <LI>
-          <Code>harvest()</Code> collects fees and starts the stream.
+          <Code>harvest()</Code> collects fees and starts the stream. Deposits and withdrawals call
+          it on the way through, so a busy pool keeps itself current; a quiet one is harvested by
+          the same keeper.
         </LI>
         <LI>
-          <Code>compound()</Code> turns the queue into liquidity.
+          <Code>compound()</Code> turns the queue into liquidity, once the oracle can price it.
         </LI>
       </UL>
       <P>
-        In practice deposits and withdrawals trigger harvests on their own, so an active pool keeps
-        itself current. <A href="/docs/fee-streaming">More on the stream →</A>
+        What never depends on any of this: two-sided deposits, withdrawals and claims. None of them
+        swap, so none of them consult the price. If every keeper in the world stopped, you could
+        still get in with both sides and out with everything.
+      </P>
+      <P>
+        On a token that moves several percent a minute, the price may sit outside the band most of
+        the time however often it is poked. The vault page says so when that is the case, and
+        single-sided deposits pause rather than execute at a price the vault cannot verify.{" "}
+        <A href="/docs/fee-streaming">More on the stream →</A>
       </P>
     </>
   );
