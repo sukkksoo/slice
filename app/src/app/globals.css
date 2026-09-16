@@ -411,6 +411,11 @@
   /* A hairline that travels the top edge of a panel, marking it as live. */
   .edge-run {
     position: relative;
+    /* The hairline below travels to translateX(200%), well past this element's right edge. Without
+       clipping here it widens the page — which on a phone is a horizontal scrollbar that appears
+       and disappears as the animation loops, and every caller would otherwise have to remember to
+       add overflow-hidden itself. */
+    overflow: hidden;
   }
   .edge-run::before {
     content: "";
