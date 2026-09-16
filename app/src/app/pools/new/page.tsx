@@ -217,9 +217,13 @@ export default function NewPoolPage() {
 
           {receipt.isSuccess ? (
             <Row tone="good" title="Vault created">
+              It is live and stakeable now.{" "}
               <Link href="/pools" className="underline">
                 See it in the pool list
               </Link>
+              . Two-sided deposits work immediately. USDC-only deposits need the vault&apos;s
+              thirty-minute price average, which starts building from the first observation — so
+              expect that button in about half an hour, with nothing to do in the meantime.
             </Row>
           ) : (
             <button className="btn btn-primary w-full" disabled={!canCreate || isPending || receipt.isLoading} onClick={create}>
@@ -240,6 +244,8 @@ export default function NewPoolPage() {
           <p className="text-[12px] leading-relaxed text-[var(--color-dim)]">
             Creating a vault costs gas and nothing else. It gives you no special rights over the
             vault — the owner and fee recipient are set by the factory, identically for every pool.
+            The pool is stakeable the moment it exists; single-sided deposits follow about thirty
+            minutes later, once its price average spans the window the vault will trade inside.
           </p>
         </div>
       </div>

@@ -362,9 +362,10 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
         <div className="panel border-[var(--color-warn)] bg-[var(--color-warn-dim)] px-5 py-3.5 text-[13px] text-[var(--color-warn)]">
           {!oracleWarm ? (
             <>
-              The price oracle is still filling its 30-minute window. Single-sided deposits and
-              compounding are paused until it does — two-sided deposits, withdrawals and claims are
-              unaffected.
+              The price oracle is still filling its 30-minute window, which takes about half an
+              hour from when the pool was listed. Single-sided deposits and compounding wait for
+              it; two-sided deposits, withdrawals and claims never consult a price and work now.
+              Nothing needs doing — a keeper is feeding it.
             </>
           ) : (
             <>

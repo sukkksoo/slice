@@ -358,8 +358,15 @@ export default function LandingPage() {
                   <>
                     Anyone. Harvesting, compounding and recording a price are all permissionless,
                     and none of them lets the caller redirect a cent — the conditions decide whether
-                    a call is valid, not who made it. If everyone involved in building this walked
-                    away, the vaults would keep working and the money would still come out.
+                    a call is valid, not who made it. Slice runs a keeper that does this for every
+                    pool, including ones listed by strangers, but it holds no privileged position:
+                    if it stopped, somebody else could run the same script.
+                    {" "}
+                    <Link href="/docs/how-it-works#keepers" className="text-[var(--color-accent)] underline">
+                      What actually needs running
+                    </Link>
+                    . Withdrawals, claims and two-sided deposits never consult a price at all, so
+                    they keep working regardless of whether anyone is.
                   </>
                 ),
               },
