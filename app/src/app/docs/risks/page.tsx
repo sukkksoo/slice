@@ -13,15 +13,16 @@ export default function Risks() {
         now clean. Do not deposit money you cannot afford to lose.
       </Callout>
 
-      <H2 id="entry-fee">The entry fee comes out of your principal</H2>
+      <H2 id="entry-fee">Fees are a certainty, not a risk</H2>
       <P>
-        Depositing costs <Strong>5% of what you supply</Strong>, taken before any liquidity is
-        added. It is not a share of yield — it reduces your stake up front, and you have to earn it
-        back in streamed fees before you are level with not having deposited.
+        Depositing costs <Strong>0.5% of what you supply</Strong>, and the protocol takes{" "}
+        <Strong>10% of harvested yield</Strong>. Everything else on this page is a risk that may or
+        may not materialise; these are charges that definitely will.
       </P>
       <P>
-        This is the most certain cost on this page: impermanent loss is a risk, the entry fee is a
-        charge. <A href="/docs/fees">Full fee breakdown →</A>
+        On a pool with a launchpad tax, a USDC-only deposit also pays that tax on the half it swaps
+        — often several times the entry fee. Supplying both sides avoids it.{" "}
+        <A href="/docs/fees">Full fee breakdown →</A>
       </P>
 
       <H2 id="il">Impermanent loss</H2>

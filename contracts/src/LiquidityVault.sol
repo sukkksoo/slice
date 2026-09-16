@@ -82,10 +82,13 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
             | Hooks.AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG | Hooks.AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG
     );
 
-    /// @notice Hard ceiling on the entry fee (10%).
-    /// @dev Bounded in the contract so the owner cannot raise it arbitrarily on people who are
-    ///      already staked. A depositor can read the current rate before committing.
-    uint16 public constant MAX_DEPOSIT_FEE_BPS = 1_000;
+    /// @notice Hard ceiling on the entry fee (2%).
+    ///
+    /// @dev Deliberately close to the default. A cap only means something as a promise if it is
+    ///      near the rate actually charged — a 10% ceiling on a 0.5% fee tells a depositor almost
+    ///      nothing about what they might be charged tomorrow. At 2% the worst case is bounded to
+    ///      something a person can accept up front.
+    uint16 public constant MAX_DEPOSIT_FEE_BPS = 200;
 
     /// @notice Hard ceiling on tolerated spot-vs-TWAP divergence for automated swaps (5%).
     uint16 public constant MAX_DEVIATION_BPS = 500;
@@ -145,7 +148,12 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     address public treasury;
 
     /// @notice Protocol's cut of each harvest, in bps.
-    uint16 public protocolFeeBps = 100;
+    ///
+    /// @dev This is where the protocol is meant to earn: a share of yield as it is produced, which
+    ///      only ever costs a staker when they are already making money. 10% is squarely in line
+    ///      with comparable vaults. It is also set to its own ceiling, so the owner can lower this
+    ///      but can never raise it — the rate someone sees when they deposit is the worst it gets.
+    uint16 public protocolFeeBps = 1_000;
 
     /// @notice Share of the post-protocol-fee harvest routed to the staker stream; the remainder
     ///         is queued for compounding back into liquidity.
@@ -155,11 +163,16 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     uint16 public maxDeviationBps = 100;
 
     /// @notice Entry fee, in bps, taken off the top of every deposit.
-    /// @dev This is a haircut on principal, not a share of yield: it is charged on the tokens
-    ///      supplied, before any liquidity is added. Because it reduces what a depositor actually
-    ///      gets, it is surfaced at the point of deposit and written up in the docs rather than
-    ///      left for people to discover from the bytecode.
-    uint16 public depositFeeBps = 500;
+    ///
+    /// @dev A haircut on principal rather than a share of yield: charged on the tokens supplied,
+    ///      before any liquidity is added. That makes it the most expensive kind of fee to charge,
+    ///      because it costs a depositor whether or not the position ever earns anything, and it
+    ///      has to be won back before they are level. Kept small for that reason — the protocol's
+    ///      real cut is `protocolFeeBps`, which only bites on yield actually produced.
+    ///
+    /// @dev Because it reduces what a depositor gets, it is surfaced at the point of deposit and
+    ///      written up in the docs rather than left to be discovered from the bytecode.
+    uint16 public depositFeeBps = 50;
 
     /// @notice Where entry fees are sent. Defaults to the treasury until the owner points it
     ///         somewhere else.

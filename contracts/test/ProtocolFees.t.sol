@@ -194,7 +194,7 @@ contract ProtocolFeesTest is Test {
     /// @notice The entry fee is a haircut on principal, taken before anything is deployed.
     function test_entryFeeIsChargedOnPrincipal() public {
         uint16 bps = vault.depositFeeBps();
-        assertEq(bps, 500, "expected a 5% default entry fee");
+        assertEq(bps, 50, "expected a 0.5% default entry fee");
 
         uint256 usdcIn = 10_000e6;
         uint256 tokenIn = 10_000e18;
@@ -230,7 +230,7 @@ contract ProtocolFeesTest is Test {
     /// @notice Entry fees are collectible, and go only to the configured recipient.
     function test_entryFeesAreCollectible() public {
         vm.prank(owner);
-        vault.setDepositFee(500, treasury);
+        vault.setDepositFee(50, treasury);
 
         vm.prank(alice);
         vault.deposit(10_000e6, 10_000e18, 0, alice);
@@ -252,7 +252,7 @@ contract ProtocolFeesTest is Test {
     ///      entry fee, and caught here.
     function test_blocklistedFeeRecipientCannotBlockDeposits() public {
         vm.prank(owner);
-        vault.setDepositFee(500, treasury);
+        vault.setDepositFee(50, treasury);
         usdc.setBlocked(treasury, true);
 
         vm.prank(alice);
@@ -264,10 +264,28 @@ contract ProtocolFeesTest is Test {
         vault.collectDepositFees();
     }
 
+    /// @notice The protocol fee sits at its own ceiling, so it can only ever be lowered.
+    /// @dev A rate a depositor reads today is therefore the worst it can become.
+    function test_protocolFeeCannotBeRaisedAboveWhatDepositorsSee() public {
+        // Read the cap first: cheatcodes apply to the *next* call, and evaluating an argument
+        // that is itself a call would consume them.
+        uint16 cap = vault.MAX_PROTOCOL_FEE_BPS();
+        assertEq(vault.protocolFeeBps(), cap, "default should sit at the cap");
+
+        vm.prank(owner);
+        vm.expectRevert(LiquidityVault.ParameterOutOfRange.selector);
+        vault.setParameters(cap + 1, 10_000, 100);
+
+        // Lowering is allowed.
+        vm.prank(owner);
+        vault.setParameters(500, 10_000, 100);
+        assertEq(vault.protocolFeeBps(), 500, "owner should be able to lower the protocol fee");
+    }
+
     function test_entryFeeIsCappedAndOwnerOnly() public {
         vm.prank(owner);
         vm.expectRevert(LiquidityVault.ParameterOutOfRange.selector);
-        vault.setDepositFee(1_001, treasury);
+        vault.setDepositFee(201, treasury); // above the 2% ceiling
 
         vm.prank(alice);
         vm.expectRevert(LiquidityVault.NotOwner.selector);

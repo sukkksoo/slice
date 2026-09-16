@@ -236,9 +236,14 @@ Checked on mainnet at block 21,172,821:
   the structural answer is EIP-1167 minimal proxies, which decouples vault size from deployment
   entirely but requires converting the immutables to storage behind an initializer. Do that before
   adding anything else to the vault, and check `forge build --sizes` on every change until then.
-- **There is a 5% entry fee**, taken from principal on deposit and sent to `feeRecipient`. It is
-  documented at `/docs/fees`, surfaced in the deposit panel, capped at 10% in the contract, and
-  readable on-chain via `depositFeeBps()`.
+- **Fees:** 0.5% entry (capped at 2%) and 10% of harvested yield (set at its own ceiling, so it can
+  only be lowered). The protocol is meant to earn from yield, not from principal — a deposit fee
+  costs a staker whether or not the position ever earns, so it is kept small deliberately.
+  Documented at `/docs/fees` and surfaced in the deposit panel.
+- **Launchpad taxes stack on top.** Argus pools charge 4% per swap (1% pool fee to stakers, 3% to
+  the launchpad hook). Withdrawals and two-sided deposits never swap and pay none of it; a
+  USDC-only deposit swaps half the input and pays ~2%. `script/measure-hook-tax.sh` measures any
+  pool.
 - **A blocklisted vault is unrecoverable.** The pull-based fee design protects against a blocked
   *treasury* or *staker*, but if Circle blocklists a vault address itself, that vault's funds are
   frozen. Nothing on-chain can defend against this; it is inherent to building on Arc's USDC.

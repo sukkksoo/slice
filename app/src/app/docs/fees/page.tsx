@@ -11,32 +11,28 @@ export default function Fees() {
         lede="Every charge the protocol makes, what it is taken from, and where it goes."
       />
 
-      <Callout tone="warn" title="There is an entry fee">
-        Slice charges <Strong>5% on deposit</Strong>. It comes out of the principal you supply, not
-        out of yield — so depositing 100 USDC puts roughly 95 USDC of position to work. Read this
-        page before staking.
+      <Callout tone="good" title="Slice earns from yield, not from your principal">
+        The main charge is <Strong>10% of the fees a pool produces</Strong> — it only ever costs you
+        when you are already earning. There is a small <Strong>0.5% entry fee</Strong> and no exit
+        fee.
       </Callout>
 
-      <H2 id="entry">Entry fee — 5% of every deposit</H2>
+      <H2 id="entry">Entry fee — 0.5% of a deposit</H2>
       <P>
         Charged on the tokens you supply, before any liquidity is added. Your shares are minted
         against the net amount, so the position you hold reflects what actually went in.
       </P>
       <P>
-        This is a <Strong>haircut on principal</Strong>, which makes it different in kind from the
-        other charges below. Those take a slice of yield as it is produced; this one reduces your
-        stake up front. It does not decay, and it is not recovered when you withdraw — you have to
-        earn it back through fees before you are level.
-      </P>
-      <P>
-        At the current rate, a position needs to accrue 5% of its value in streamed fees before it
-        breaks even against simply not depositing. How long that takes depends entirely on how much
-        the pool trades.
+        This is a <Strong>haircut on principal</Strong>, which makes it the most expensive kind of
+        fee to charge: it costs you whether or not the position ever earns, and it has to be won
+        back before you are level. That is exactly why it is kept small — 0.5% is roughly two
+        days of a busy pool&apos;s fees, not two months of them.
       </P>
       <UL>
         <LI>
-          Capped in the contract at <Code>MAX_DEPOSIT_FEE_BPS</Code> = 10%, so it cannot be raised
-          without limit on people already staked.
+          Capped in the contract at <Code>MAX_DEPOSIT_FEE_BPS</Code> = <Strong>2%</Strong>. The cap
+          sits close to the rate on purpose: a 10% ceiling over a 0.5% fee would tell you nothing
+          about what you might be charged tomorrow.
         </LI>
         <LI>
           Readable on-chain at any time via <Code>depositFeeBps()</Code>, and shown in the deposit
@@ -54,14 +50,14 @@ export default function Fees() {
         rows={[
           [
             <Strong key="a">Entry fee</Strong>,
-            "5%",
+            "0.5%",
             "Your principal, on deposit",
             "feeRecipient",
           ],
           [
             <Strong key="b">Protocol fee</Strong>,
-            "1%",
-            "Each harvest of trading fees",
+            "10%",
+            "Yield only — each harvest of trading fees",
             "treasury",
           ],
           [
@@ -112,8 +108,8 @@ export default function Fees() {
       <Callout tone="warn" title="On a taxed pool, deposit both sides">
         Withdrawals and two-sided deposits never swap, so they pay none of the hook tax. A USDC-only
         deposit swaps half the input, so on a 4%-per-swap pool it costs roughly{" "}
-        <Strong>2% of the deposit</Strong> — on top of the entry fee. Supplying both sides avoids it
-        entirely.
+        <Strong>2% of the deposit</Strong> — four times the entry fee. Supplying both sides avoids
+        it entirely, and on a taxed pool that is by far the bigger saving.
       </Callout>
       <P>
         Harvesting is also a swap: converting the token side of collected fees to USDC pays the same
@@ -144,11 +140,23 @@ export default function Fees() {
         on the deposit path, and the regression test written for the first bug caught the second.
       </Callout>
 
-      <H2 id="changing">Who can change the rate</H2>
+      <H2 id="protocol">Protocol fee — 10% of harvested yield</H2>
       <P>
-        The vault owner, via <Code>setDepositFee</Code>, bounded by the 10% cap. The owner cannot
-        withdraw your funds, mint shares, or pause withdrawals — there is no such function — but
-        they can change what future deposits are charged.
+        Taken from trading fees as they are collected, before the rest is streamed to stakers. It
+        costs you nothing on a quiet pool, and scales with what the pool actually produces — which
+        is the right way round for a fee.
+      </P>
+      <P>
+        It is set to its own ceiling, so the owner can <Strong>lower</Strong> it but can never raise
+        it. The rate you read when you deposit is the worst it will ever be. 10% is in line with
+        comparable vaults elsewhere.
+      </P>
+
+      <H2 id="changing">Who can change the rates</H2>
+      <P>
+        The vault owner, via <Code>setDepositFee</Code> and <Code>setParameters</Code>, within the
+        caps above. The owner cannot withdraw your funds, mint shares, or pause withdrawals — there
+        is no such function.
       </P>
       <P>
         Check <Code>depositFeeBps()</Code> and the vault&apos;s owner before depositing. The{" "}
