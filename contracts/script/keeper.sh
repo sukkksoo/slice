@@ -105,7 +105,16 @@ ONCE=false
 # message, which spends gas a second time and re-runs a state change that may well have
 # succeeded — a "failure" that printed a block hash was exactly that.
 LAST_OUT=""
-send() { LAST_OUT=$(cast send "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1); }
+# --async: submit and move on, rather than waiting for a receipt.
+#
+# Arc's public RPC is load balanced, so the node that accepts a transaction and the node asked for
+# its receipt are often a block apart, and the read fails with "request beyond head block" for a
+# transaction that landed perfectly well. The keeper never inspects a receipt — it pokes on a timer
+# — so waiting for one buys nothing and turns an ordinary RPC race into a reported failure.
+#
+# A submission error (bad nonce, empty wallet, wrong password) still fails here, which is what the
+# reporting below is for.
+send() { LAST_OUT=$(cast send --async "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1); }
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 round() {
