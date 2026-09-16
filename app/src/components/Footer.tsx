@@ -11,7 +11,7 @@ const GROUPS = [
     title: "Product",
     links: [
       { href: "/pools", label: "Pools" },
-      { href: "/stakes", label: "Stakes" },
+      { href: "/account", label: "Account" },
       { href: "/creator", label: "Creator" },
     ],
   },

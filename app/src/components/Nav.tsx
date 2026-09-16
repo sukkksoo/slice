@@ -11,7 +11,7 @@ import { AccountMenu } from "@/components/AccountMenu";
 
 const TABS = [
   { href: "/pools", label: "Pools" },
-  { href: "/stakes", label: "Stakes" },
+  { href: "/account", label: "Account" },
   { href: "/creator", label: "Creator" },
   { href: "/docs", label: "Docs" },
 ];

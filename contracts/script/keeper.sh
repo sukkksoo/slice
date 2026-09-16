@@ -122,7 +122,42 @@ LAST_OUT=""
 #
 # A submission error (bad nonce, empty wallet, wrong password) still fails here, which is what the
 # reporting below is for.
-send() { LAST_OUT=$(cast send --async "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1); }
+#
+# NONCE
+#
+# --async also means cast no longer learns the nonce from the previous send. With three vaults and
+# two calls each, six transactions go out within seconds and the node hands several of them the
+# same nonce: the log fills with "nonce too low" and "replacement transaction underpriced", and
+# roughly half the pokes never happen. So it is tracked here — read from the pending pool once per
+# round, incremented locally per send, and re-read if the node complains.
+NEXT_NONCE=""
+
+refresh_nonce() {
+  NEXT_NONCE=$(cast nonce "$ADDR" --block pending --rpc-url "$RPC" 2>/dev/null)
+  [ -n "$NEXT_NONCE" ] || NEXT_NONCE=$(cast nonce "$ADDR" --rpc-url "$RPC" 2>/dev/null)
+}
+
+send() {
+  local status
+  [ -n "$NEXT_NONCE" ] || refresh_nonce
+
+  LAST_OUT=$(cast send --async --nonce "$NEXT_NONCE" "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
+  status=$?
+
+  if [ $status -ne 0 ] && printf '%s' "$LAST_OUT" | grep -qiE "nonce too low|already known|replacement transaction"; then
+    refresh_nonce
+    LAST_OUT=$(cast send --async --nonce "$NEXT_NONCE" "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
+    status=$?
+  fi
+
+  if [ $status -eq 0 ]; then
+    NEXT_NONCE=$((NEXT_NONCE + 1))
+  else
+    # Whatever went wrong, the local counter can no longer be trusted.
+    NEXT_NONCE=""
+  fi
+  return $status
+}
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 # Poke a vault, then harvest it if its oracle can price the swap.
@@ -153,6 +188,7 @@ service() {
 
 round() {
   local count i vault supply
+  refresh_nonce
   count=$(call "$FACTORY" "vaultCount()(uint256)")
   [ -n "$count" ] || { echo "$(date -u +%T) cannot reach the factory"; return; }
 
@@ -191,7 +227,15 @@ round() {
   fi
 }
 
+# The signer's address, needed to read its nonce. Derived once from whichever signer is in use.
+ADDR=$(cast wallet address "${SIGNER[@]}" 2>/dev/null)
+if [ -z "$ADDR" ]; then
+  echo "Could not derive the keeper address from the configured signer."
+  exit 1
+fi
+
 echo "keeper: factory $FACTORY on $RPC, every ${INTERVAL}s"
+echo "signer: $ADDR"
 round
 $ONCE && exit 0
 while true; do

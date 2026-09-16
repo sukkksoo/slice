@@ -9,6 +9,7 @@ const SECTIONS = [
     title: "Start here",
     links: [
       { href: "/docs", label: "What Slice is" },
+      { href: "/docs/glossary", label: "Plain English" },
       { href: "/docs/how-it-works", label: "How it works" },
     ],
   },

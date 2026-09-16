@@ -86,8 +86,8 @@ export function AccountMenu() {
           <MenuItem href={explorerAddress(address)} external>
             View on explorer
           </MenuItem>
-          <MenuItem href="/stakes" onClick={() => setOpen(false)}>
-            Your stakes
+          <MenuItem href="/account" onClick={() => setOpen(false)}>
+            Your account
           </MenuItem>
           <div className="my-1 border-t border-[var(--color-border)]" />
           <MenuItem
