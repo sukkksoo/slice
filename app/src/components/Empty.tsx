@@ -1,36 +1,73 @@
 import Link from "next/link";
 
+function Shell({
+  icon,
+  title,
+  children,
+}: {
+  icon: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="panel-raised px-6 py-14 text-center">
+      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--color-surface-3)] text-xl">
+        {icon}
+      </div>
+      <h2 className="mt-5 text-lg font-semibold">{title}</h2>
+      <div className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[var(--color-muted)]">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function NotDeployed() {
   return (
-    <div className="panel px-6 py-10 text-center">
-      <div className="text-sm font-semibold">No factory configured</div>
-      <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-[var(--color-muted)]">
-        Deploy the contracts, then set <code className="text-[var(--color-text)]">NEXT_PUBLIC_FACTORY_ADDRESS</code>{" "}
-        in the app environment. Until then there is nothing on-chain to read.
+    <Shell icon="⚙" title="No factory configured">
+      <p>
+        Deploy the contracts, then set{" "}
+        <code className="mono rounded bg-[var(--color-surface-3)] px-1.5 py-0.5 text-xs text-[var(--color-text)]">
+          NEXT_PUBLIC_FACTORY_ADDRESS
+        </code>
+        . Until then there is nothing on-chain to read.
       </p>
-      <pre className="mx-auto mt-4 max-w-lg overflow-x-auto rounded bg-[var(--color-panel-2)] px-4 py-3 text-left text-[11px] text-[var(--color-muted)]">
-{`cd contracts
-forge script script/Deploy.s.sol \
-  --rpc-url $ARC_RPC_URL --broadcast`}
+      <pre className="mono mt-5 overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3.5 text-left text-xs text-[var(--color-dim)]">
+        {`cd contracts\nforge script script/Deploy.s.sol \\\n  --rpc-url $ARC_RPC_URL --broadcast`}
       </pre>
-    </div>
+    </Shell>
   );
 }
 
 export function NoVaults() {
   return (
-    <div className="panel px-6 py-10 text-center">
-      <div className="text-sm font-semibold">No vaults yet</div>
-      <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-[var(--color-muted)]">
+    <Shell icon="◎" title="No vaults yet">
+      <p>
         Anyone can create the vault for a Uniswap v4 pool that quotes USDC. The pool has to be
         initialized first.
       </p>
-      <Link
-        href="/creator"
-        className="mt-4 inline-block rounded bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-black"
-      >
+      <Link href="/creator" className="btn btn-primary mt-6">
         Create a vault
       </Link>
-    </div>
+    </Shell>
+  );
+}
+
+export function NothingStaked() {
+  return (
+    <Shell icon="◇" title="Nothing staked yet">
+      <p>Deposit into a pool to start earning a share of its trading fees, paid in USDC.</p>
+      <Link href="/pools" className="btn btn-primary mt-6">
+        Browse pools
+      </Link>
+    </Shell>
+  );
+}
+
+export function ConnectPrompt() {
+  return (
+    <Shell icon="⬡" title="Connect your wallet">
+      <p>Your staked positions and claimable rewards will appear here.</p>
+    </Shell>
   );
 }

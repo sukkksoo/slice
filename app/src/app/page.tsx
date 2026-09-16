@@ -3,100 +3,150 @@
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { LiveBadge, PairAvatar, StatBar } from "@/components/ui";
 import { useVaults } from "@/hooks/useVaults";
-import { formatUsdCompact } from "@/lib/format";
-import { targetChain } from "@/lib/wagmi";
+import { formatPercent, formatUsdCompact } from "@/lib/format";
+import { targetChain } from "@/lib/chain";
 
 export default function LandingPage() {
-  const { vaults, configured } = useVaults();
+  const { vaults, configured, isLoading } = useVaults();
 
   const totals = useMemo(() => {
     const tvl = vaults.reduce((acc, v) => acc + v.tvlUsdc, 0n);
+    const queued = vaults.reduce((acc, v) => acc + v.pendingCompound, 0n);
     const streaming = vaults.filter((v) => v.rewardRate > 0n).length;
-    return { tvl, streaming, count: vaults.length };
+    return { tvl, queued, streaming, count: vaults.length };
   }, [vaults]);
 
-  return (
-    <div className="space-y-16 pb-12">
-      {/* --- hero --- */}
-      <section className="pt-6">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] px-3 py-1 text-[11px] text-[var(--color-muted)]">
-          <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
-          Live on {targetChain.name} · Uniswap v4
-        </div>
+  // Show a real pool in the hero rather than a decorative illustration.
+  const featured = useMemo(
+    () => [...vaults].sort((a, b) => (b.tvlUsdc > a.tvlUsdc ? 1 : -1))[0],
+    [vaults],
+  );
 
-        <h1 className="mt-5 max-w-2xl text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
-          Liquidity infrastructure for Arc.
+  return (
+    <div className="space-y-24 pb-8">
+      {/* --- hero --- */}
+      <section className="grid items-start gap-12 pt-8 sm:pt-14 lg:grid-cols-[1.25fr_0.75fr]">
+        <div>
+        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-muted)]">
+          <span className="live-dot size-1.5 rounded-full bg-[var(--color-accent)]" />
+          Live on {targetChain.name} · Uniswap v4
+        </span>
+
+        <h1 className="mt-7 max-w-3xl text-[40px] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[58px]">
+          Liquidity that
+          <br />
+          <span className="accent-text">pays you back.</span>
         </h1>
 
-        <p className="mt-4 max-w-xl text-sm leading-relaxed text-[var(--color-muted)]">
-          Stake your liquidity in any token and earn a share of that pool&apos;s trading fees, paid
-          in USDC and streamed over time. Or, as a token creator, route fees into your own pool
-          automatically — on a schedule, or as your market cap climbs.
+        <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-[var(--color-muted)]">
+          Stake liquidity in any token and earn a share of that pool&apos;s trading fees — paid in
+          USDC, streamed second by second. Or route your token&apos;s fees straight back into its own
+          liquidity, automatically.
         </p>
 
-        <div className="mt-7 flex flex-wrap gap-2">
-          <Link
-            href="/pools"
-            className="rounded bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-black"
-          >
+        <div className="mt-9 flex flex-wrap gap-3">
+          <Link href="/pools" className="btn btn-primary px-5 py-2.5 text-[14px]">
             Browse pools
           </Link>
-          <Link
-            href="/docs"
-            className="rounded border border-[var(--color-border)] px-4 py-2 text-xs font-semibold hover:border-[var(--color-accent)]"
-          >
-            Read the docs
+          <Link href="/docs" className="btn btn-ghost px-5 py-2.5 text-[14px]">
+            How it works
           </Link>
         </div>
 
-        {configured && (
-          <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-[var(--color-border)] pt-6">
-            <div>
-              <dt className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">
-                Total value locked
-              </dt>
-              <dd className="num mt-1 text-lg font-semibold">{formatUsdCompact(totals.tvl)}</dd>
+        </div>
+
+        {/* A real pool, live, rather than a decorative illustration. */}
+        {featured && (
+          <Link
+            href={`/vault/${featured.address}`}
+            className="panel-raised hidden p-6 lg:block"
+          >
+            <div className="flex items-center justify-between">
+              <span className="label">Live pool</span>
+              <LiveBadge warm={featured.oracleWarm} />
             </div>
-            <div>
-              <dt className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">
-                Pools
-              </dt>
-              <dd className="num mt-1 text-lg font-semibold">{totals.count}</dd>
+
+            <div className="mt-5 flex items-center gap-3">
+              <PairAvatar address={featured.assetToken} symbol={featured.symbol} />
+              <div>
+                <div className="text-[15px] font-semibold">
+                  {featured.symbol} <span className="text-[var(--color-dim)]">/ USDC</span>
+                </div>
+                <div className="text-xs text-[var(--color-dim)]">Uniswap v4 · full range</div>
+              </div>
             </div>
-            <div>
-              <dt className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">
-                Streaming fees
-              </dt>
-              <dd className="num mt-1 text-lg font-semibold text-[var(--color-accent)]">
-                {totals.streaming}
-              </dd>
-            </div>
-          </dl>
+
+            <dl className="mt-6 space-y-3 border-t border-[var(--color-border)] pt-5">
+              <div className="flex items-baseline justify-between">
+                <dt className="text-[13px] text-[var(--color-muted)]">TVL</dt>
+                <dd className="num text-[15px] font-semibold">
+                  {formatUsdCompact(featured.tvlUsdc)}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <dt className="text-[13px] text-[var(--color-muted)]">Stream APR</dt>
+                <dd className="num text-[15px] font-semibold text-[var(--color-up)]">
+                  {featured.rewardRate > 0n ? formatPercent(featured.aprPercent) : "—"}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <dt className="text-[13px] text-[var(--color-muted)]">Fees paid in</dt>
+                <dd className="text-[15px] font-semibold">USDC</dd>
+              </div>
+            </dl>
+
+            <div className="btn btn-ghost mt-6 w-full">Stake into this pool</div>
+          </Link>
         )}
       </section>
 
+      {configured && (
+        <section className="-mt-10 border-t border-[var(--color-border)] pt-8">
+          {isLoading && vaults.length === 0 ? (
+            <div className="flex gap-9">
+              {[0, 1, 2].map((i) => (
+                <div key={i}>
+                  <div className="skeleton h-3 w-20" />
+                  <div className="skeleton mt-2.5 h-7 w-24" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <StatBar
+              items={[
+                { label: "Total value locked", value: formatUsdCompact(totals.tvl) },
+                { label: "Pools", value: String(totals.count) },
+                { label: "Streaming fees", value: String(totals.streaming), tone: "accent" },
+                { label: "Queued to compound", value: formatUsdCompact(totals.queued) },
+              ]}
+            />
+          )}
+        </section>
+      )}
+
       {/* --- two audiences --- */}
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-5 lg:grid-cols-2">
         <Audience
           tag="For holders"
           title="Earn real fees, not emissions"
-          body="Deposit into a pool's vault and receive shares. Every swap that crosses the pool pays a fee; those fees are collected, converted to USDC, and streamed to you second by second. Nothing is minted to pay you — the yield is the pool's own trading activity."
+          body="Deposit into a pool's vault and receive shares. Every swap that crosses the pool pays a fee; those fees are collected, converted to USDC, and streamed to you. Nothing is minted to pay you — the yield is the pool's own trading activity."
           points={[
             "Deposit USDC alone, or both sides of the pair",
-            "Rewards accrue in USDC and can be claimed any time",
-            "Withdraw whenever you like — no lockup",
+            "Rewards accrue in USDC, claimable any time",
+            "No lockup — withdraw whenever",
           ]}
           href="/pools"
           cta="See the pools"
         />
         <Audience
           tag="For creators"
-          title="Deepen your own liquidity, on autopilot"
-          body="Point a fee router at your pool and fund it with USDC — from a launchpad fee split, a treasury budget, or a plain transfer. It deploys that budget into liquidity on the schedule you set, or as the token crosses market-cap milestones you choose."
+          title="Deepen your liquidity on autopilot"
+          body="Point a fee router at your pool and fund it with USDC — from a launchpad fee split, a treasury budget, or a plain transfer. It deploys that budget into liquidity on your schedule, or as the token crosses market-cap milestones."
           points={[
             "Cadence or market-cap triggers, priced off a TWAP",
-            "Burn the shares to make added liquidity permanent",
+            "Burn the shares to make liquidity permanent",
             "Anyone can trigger it — you never run a keeper",
           ]}
           href="/creator"
@@ -104,54 +154,68 @@ export default function LandingPage() {
         />
       </section>
 
-      {/* --- how it works, short --- */}
+      {/* --- how a fee becomes yield --- */}
       <section>
-        <h2 className="text-base font-semibold tracking-tight">How a fee becomes your yield</h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em]">
+          How a fee becomes your yield
+        </h2>
+        <p className="mt-2 max-w-xl text-sm text-[var(--color-muted)]">
+          Four steps, all on-chain, all triggerable by anyone.
+        </p>
+
+        <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Step
             n="01"
             title="A trade happens"
-            body="Someone swaps against the pool and pays a fee. It accrues to the vault's liquidity position, pro-rata with everyone else's."
+            body="Someone swaps against the pool and pays a fee. It accrues to the vault's position, pro-rata with every other staker."
           />
           <Step
             n="02"
             title="The vault harvests"
-            body="Fees are collected and the token side is converted to USDC, bounded by a TWAP so the conversion can't be priced at a manipulated moment."
+            body="Fees are collected and the token side converted to USDC — bounded by a TWAP, so it can never be priced at a manipulated moment."
           />
           <Step
             n="03"
             title="It streams, not dumps"
-            body="The proceeds pay out linearly over seven days rather than landing at once — so nobody can deposit right before a harvest and capture fees they never earned."
+            body="Proceeds pay out linearly over seven days. Nobody can deposit right before a harvest and walk off with fees they never earned."
           />
           <Step
             n="04"
             title="You claim"
-            body="Your share accrues every second and sits there until you take it. Or leave it compounding into deeper liquidity."
+            body="Your share accrues every second and waits until you take it. Or leave it compounding into deeper liquidity."
           />
-        </div>
-        <p className="mt-5 text-[11px] text-[var(--color-muted)]">
-          <Link href="/docs/how-it-works" className="text-[var(--color-accent)] hover:underline">
-            Read the full mechanics →
-          </Link>
-        </p>
+        </ol>
+
+        <Link
+          href="/docs/how-it-works"
+          className="mt-7 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent)] hover:underline"
+        >
+          Read the full mechanics
+          <span aria-hidden>→</span>
+        </Link>
       </section>
 
       {/* --- honesty --- */}
-      <section className="rounded-lg border border-[var(--color-warn)] bg-[var(--color-panel)] px-5 py-4">
-        <div className="text-xs font-semibold text-[var(--color-warn)]">
-          This is unaudited software
+      <section className="panel-raised overflow-hidden">
+        <div className="border-l-2 border-[var(--color-warn)] px-6 py-6 sm:px-8">
+          <h2 className="text-base font-semibold text-[var(--color-warn)]">
+            This is unaudited software
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
+            These contracts hold user funds and have not been reviewed by a third party. Development
+            surfaced two fee-leak bugs and one bug that could have frozen every vault permanently.
+            All three are fixed and covered by tests — but finding three real defects is evidence
+            that more exist, not that the code is now clean.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link href="/docs/risks" className="btn btn-ghost">
+              What can go wrong
+            </Link>
+            <Link href="/docs/security" className="btn btn-ghost">
+              Security model
+            </Link>
+          </div>
         </div>
-        <p className="mt-2 max-w-2xl text-[11px] leading-relaxed text-[var(--color-muted)]">
-          These contracts hold user funds and have not been reviewed by a third party. Development
-          surfaced two real fee-leak bugs and one vault-freezing bug, all of which are fixed and
-          covered by tests — but that history is a reason to expect more, not fewer, undiscovered
-          issues. The{" "}
-          <Link href="/docs/risks" className="text-[var(--color-accent)] hover:underline">
-            risks page
-          </Link>{" "}
-          documents what can still go wrong, including the parts nothing on-chain can defend
-          against.
-        </p>
       </section>
     </div>
   );
@@ -173,22 +237,23 @@ function Audience({
   cta: string;
 }) {
   return (
-    <div className="panel flex flex-col p-6">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">{tag}</div>
-      <h3 className="mt-2 text-sm font-semibold tracking-tight">{title}</h3>
-      <p className="mt-3 text-xs leading-relaxed text-[var(--color-muted)]">{body}</p>
-      <ul className="mt-4 space-y-1.5 text-xs text-[var(--color-muted)]">
+    <div className="panel-raised flex flex-col p-7">
+      <div className="label text-[var(--color-accent)]">{tag}</div>
+      <h3 className="mt-3 text-[19px] font-semibold tracking-[-0.015em]">{title}</h3>
+      <p className="mt-3.5 text-sm leading-relaxed text-[var(--color-muted)]">{body}</p>
+
+      <ul className="mt-6 space-y-3 border-t border-[var(--color-border)] pt-6">
         {points.map((p) => (
-          <li key={p} className="flex gap-2">
-            <span className="text-[var(--color-accent)]">→</span>
+          <li key={p} className="flex gap-3 text-sm text-[var(--color-muted)]">
+            <span className="mt-[3px] grid size-4 shrink-0 place-items-center rounded-full bg-[var(--color-accent-dim)] text-[9px] text-[var(--color-accent)]">
+              ✓
+            </span>
             <span>{p}</span>
           </li>
         ))}
       </ul>
-      <Link
-        href={href}
-        className="mt-5 inline-block self-start rounded border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold hover:border-[var(--color-accent)]"
-      >
+
+      <Link href={href} className="btn btn-ghost mt-7 self-start">
         {cta}
       </Link>
     </div>
@@ -197,10 +262,10 @@ function Audience({
 
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
-    <div className="panel p-4">
-      <div className="num text-[10px] text-[var(--color-accent)]">{n}</div>
-      <div className="mt-1.5 text-xs font-semibold">{title}</div>
-      <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-muted)]">{body}</p>
-    </div>
+    <li className="panel p-5">
+      <div className="num text-xs font-semibold text-[var(--color-accent)]">{n}</div>
+      <h3 className="mt-2.5 text-[15px] font-semibold">{title}</h3>
+      <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-muted)]">{body}</p>
+    </li>
   );
 }

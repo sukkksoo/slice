@@ -1,6 +1,6 @@
 "use client";
 
-import { A, Code, H2, LI, P, Strong, Table, UL } from "@/components/Prose";
+import { A, Code, H2, LI, P, Strong, Table, UL, DocHeader } from "@/components/Prose";
 import { ARC, FACTORY_ADDRESS } from "@/lib/contracts";
 import { useVaultAddresses } from "@/hooks/useVaults";
 import { targetChain } from "@/lib/chain";
@@ -26,13 +26,11 @@ export default function Contracts() {
 
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Reference</div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Contracts</h1>
+      <DocHeader kicker="Reference" title="Contracts" />
       <P>
         Everything is deployed permissionlessly and verifiable on-chain. Currently targeting{" "}
         <Strong>{targetChain.name}</Strong> (chain {targetChain.id}).
       </P>
-
       <H2 id="delta">Delta contracts</H2>
       <Table
         head={["Contract", "Address", "Role"]}

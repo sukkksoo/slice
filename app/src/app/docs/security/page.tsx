@@ -1,17 +1,11 @@
-import { A, Callout, Code, H2, H3, LI, P, Strong, Table, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, H3, LI, P, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "Security model — Delta on Arc" };
 
 export default function Security() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Reference</div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Security model</h1>
-      <P>
-        What the protocol defends against, how, and — just as importantly — the bugs that were found
-        while building it.
-      </P>
-
+      <DocHeader kicker="Reference" title="Security model" lede={"What the protocol defends against, how, and — just as importantly — the bugs that were found while building it."} />
       <Callout tone="warn" title="Unaudited">
         Everything below describes intent and testing, not third-party verification.{" "}
         <A href="/docs/risks">Read the risks →</A>

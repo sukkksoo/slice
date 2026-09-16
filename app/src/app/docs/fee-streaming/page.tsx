@@ -1,4 +1,4 @@
-import { A, Callout, Code, H2, LI, P, Pre, Strong, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, LI, P, Pre, Strong, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "The fee stream — Delta on Arc" };
 
@@ -10,15 +10,7 @@ block N+2   attacker withdraws, taking a share of fees earned
 export default function FeeStreaming() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">
-        For holders
-      </div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">The fee stream</h1>
-      <P>
-        Why fees trickle out over a week instead of landing all at once — and why that choice
-        protects you.
-      </P>
-
+      <DocHeader kicker="For holders" title="The fee stream" lede={"Why fees trickle out over a week instead of landing all at once — and why that choice protects you."} />
       <H2 id="problem">The problem it solves</H2>
       <P>
         Fees build up inside the Uniswap position continuously, but they are only{" "}

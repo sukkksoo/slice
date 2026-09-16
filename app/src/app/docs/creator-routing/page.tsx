@@ -1,4 +1,4 @@
-import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "Fee routing — Delta on Arc" };
 
@@ -17,15 +17,7 @@ const FLOW = `USDC arrives (launchpad fees, treasury budget, plain transfer)
 export default function CreatorRouting() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">
-        For creators
-      </div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Fee routing</h1>
-      <P>
-        Turn a share of trading fees, or any USDC budget, into deeper liquidity for your token —
-        automatically, on-chain, without running anything yourself.
-      </P>
-
+      <DocHeader kicker="For creators" title="Fee routing" lede={"Turn a share of trading fees, or any USDC budget, into deeper liquidity for your token — automatically, on-chain, without running anything yourself."} />
       <H2 id="idea">The idea</H2>
       <P>
         A <Strong>fee router</Strong> is a contract you own that holds USDC and deploys it into your

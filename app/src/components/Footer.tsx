@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { targetChain } from "@/lib/wagmi";
+import { targetChain } from "@/lib/chain";
 
 const GROUPS = [
   {
@@ -35,33 +35,31 @@ const GROUPS = [
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-[var(--color-border)]">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="mt-24 border-t border-[var(--color-border)]">
+      <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="grid size-6 place-items-center rounded bg-[var(--color-accent-dim)] text-xs font-bold text-[var(--color-accent)]">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-[var(--color-accent-bright)] to-[var(--color-accent)] text-sm font-bold text-[#04120c]">
                 Δ
               </span>
-              <span className="text-xs font-semibold">Delta</span>
+              <span className="text-sm font-semibold">Delta</span>
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-muted)]">
-              Liquidity infrastructure for Arc. Stake liquidity, earn streamed fees, route creator
-              fees into automatic liquidity.
+            <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-[var(--color-muted)]">
+              Liquidity infrastructure for Arc. Stake liquidity and earn streamed fees, or route
+              creator fees into automatic on-chain liquidity.
             </p>
           </div>
 
           {GROUPS.map((group) => (
             <div key={group.title}>
-              <div className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">
-                {group.title}
-              </div>
-              <ul className="mt-3 space-y-1.5">
+              <div className="label">{group.title}</div>
+              <ul className="mt-4 space-y-2.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-[11px] text-[var(--color-muted)] hover:text-[var(--color-text)]"
+                      className="text-[13px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
                     >
                       {link.label}
                     </Link>
@@ -72,10 +70,12 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-6 text-[11px] text-[var(--color-muted)]">
-          <span className="text-[var(--color-warn)]">Unaudited software.</span>
+        <div className="mt-12 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--color-border)] pt-6 text-xs text-[var(--color-dim)]">
+          <span className="rounded-full bg-[var(--color-warn-dim)] px-2.5 py-1 font-medium text-[var(--color-warn)]">
+            Unaudited software
+          </span>
           <span>
-            {targetChain.name} · chain {targetChain.id}
+            {targetChain.name} · chain <span className="num">{targetChain.id}</span>
           </span>
           <span>Uniswap v4</span>
           <span>Gas paid in USDC</span>

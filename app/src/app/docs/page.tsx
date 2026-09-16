@@ -1,18 +1,15 @@
-import { A, Callout, H2, LI, P, Strong, UL } from "@/components/Prose";
+import { A, Callout, H2, LI, P, Strong, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "What Delta is — Delta on Arc" };
 
 export default function DocsIndex() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Docs</div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">What Delta is</h1>
-
+      <DocHeader kicker="Docs" title="What Delta is" />
       <P>
         Delta is a liquidity layer for <A href="https://www.arc.io/">Arc</A>. It does two things,
         for two different groups of people, on top of the same piece of machinery.
       </P>
-
       <H2>For people holding tokens</H2>
       <P>
         Providing liquidity on a DEX earns you a cut of trading fees, but it is fiddly: you pick a

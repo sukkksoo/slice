@@ -1,19 +1,11 @@
-import { A, Callout, Code, H2, LI, P, Strong, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, LI, P, Strong, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "Risks — Delta on Arc" };
 
 export default function Risks() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">
-        For holders
-      </div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Risks</h1>
-      <P>
-        An honest list. Some of these are ordinary DeFi risks, some are specific to Arc, and one of
-        them has no technical mitigation at all.
-      </P>
-
+      <DocHeader kicker="For holders" title="Risks" lede={"An honest list. Some of these are ordinary DeFi risks, some are specific to Arc, and one of them has no technical mitigation at all."} />
       <Callout tone="warn" title="Start here: this code is unaudited">
         No third party has reviewed these contracts. Development surfaced two fee-leak bugs and one
         bug that could have frozen every vault permanently. All three are fixed and covered by

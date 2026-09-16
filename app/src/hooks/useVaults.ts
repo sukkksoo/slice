@@ -9,7 +9,10 @@ import { streamApr, tokenValueInUsdc } from "@/lib/format";
 
 export type VaultSummary = {
   address: Address;
+  /** The underlying asset's ticker, e.g. "DTT" — what a person means by "the pool". */
   symbol: string;
+  /** The vault share token's own symbol, e.g. "dLP-DTT". */
+  shareSymbol: string;
   assetToken: Address;
   usdcIsCurrency0: boolean;
   totalSupply: bigint;
@@ -154,7 +157,10 @@ export function useVaults() {
       const ok = (offset: number) => at(offset)?.status === "success";
       if (!ok(0)) return [];
 
-      const symbol = at(0)!.result as string;
+      // The vault names its share token `dLP-<asset>`; strip that so the UI shows the pool the
+      // person recognises rather than the wrapper.
+      const shareSymbol = at(0)!.result as string;
+      const symbol = shareSymbol.replace(/^dLP-/, "");
       const assetToken = at(1)!.result as Address;
       const usdcIsCurrency0 = at(2)!.result as boolean;
       const totalSupply = (at(3)?.result as bigint) ?? 0n;
@@ -185,6 +191,7 @@ export function useVaults() {
         {
           address,
           symbol,
+          shareSymbol,
           assetToken,
           usdcIsCurrency0,
           totalSupply,

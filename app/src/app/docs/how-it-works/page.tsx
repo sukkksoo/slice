@@ -1,14 +1,11 @@
-import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, H3, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "How it works — Delta on Arc" };
 
 export default function HowItWorks() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Docs</div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">How it works</h1>
-      <P>The full path a trading fee takes before it becomes something you can claim.</P>
-
+      <DocHeader kicker="Docs" title="How it works" lede={"The full path a trading fee takes before it becomes something you can claim."} />
       <H2 id="the-vault">The vault</H2>
       <P>
         Each pool gets one vault. The vault owns a single <Strong>full-range</Strong> Uniswap v4

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = [
+const SECTIONS = [
   {
     title: "Start here",
     links: [
@@ -38,25 +38,23 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[200px_1fr]">
-      <aside className="lg:sticky lg:top-8 lg:h-fit">
-        <nav className="space-y-5">
+    <div className="grid gap-12 lg:grid-cols-[210px_1fr]">
+      <aside className="lg:sticky lg:top-24 lg:h-fit">
+        <nav className="space-y-7">
           {SECTIONS.map((section) => (
             <div key={section.title}>
-              <div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-muted)]">
-                {section.title}
-              </div>
-              <ul className="space-y-0.5">
+              <div className="label mb-3">{section.title}</div>
+              <ul className="space-y-0.5 border-l border-[var(--color-border)]">
                 {section.links.map((link) => {
                   const active = pathname === link.href;
                   return (
                     <li key={link.href}>
                       <Link
                         href={link.href}
-                        className={`block rounded px-2 py-1 text-xs transition-colors ${
+                        className={`-ml-px block border-l py-1.5 pl-4 text-[13.5px] transition-colors ${
                           active
-                            ? "bg-[var(--color-panel-2)] text-[var(--color-text)]"
-                            : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
+                            ? "border-[var(--color-accent)] font-medium text-[var(--color-text)]"
+                            : "border-transparent text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]"
                         }`}
                       >
                         {link.label}
@@ -70,7 +68,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <article className="min-w-0 max-w-2xl pb-16">{children}</article>
+      <article className="min-w-0 max-w-[680px] pb-20">{children}</article>
     </div>
   );
 }

@@ -1,35 +1,241 @@
 @import "tailwindcss";
 
+/*
+ * Design system.
+ *
+ * Sans for everything a person reads; mono reserved for numbers, addresses and code, where
+ * tabular alignment actually earns its keep. The previous build used mono at 11px for all text,
+ * which read as a terminal dump rather than a product.
+ */
 @theme {
-  --color-bg: #08090c;
-  --color-panel: #0f1116;
-  --color-panel-2: #14171f;
-  --color-border: #1e2230;
-  --color-muted: #7c8499;
-  --color-text: #e6e9f0;
-  --color-accent: #4ade80;
-  --color-accent-dim: #16341f;
+  /* surfaces — near-black with a cool undertone, layered rather than flat */
+  --color-bg: #07080b;
+  --color-surface: #0c0e13;
+  --color-surface-2: #11141b;
+  --color-surface-3: #171b24;
+  --color-border: #1b202b;
+  --color-border-strong: #2a3140;
+
+  /* text */
+  --color-text: #eef1f6;
+  --color-muted: #8b94a8;
+  --color-dim: #5a6376;
+
+  /* brand + semantic */
+  --color-accent: #34d399;
+  --color-accent-bright: #5eead4;
+  --color-accent-dim: #0d2a20;
+  --color-up: #34d399;
+  --color-down: #f87171;
   --color-warn: #fbbf24;
+  --color-warn-dim: #2a2210;
   --color-danger: #f87171;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  --radius-panel: 14px;
 }
 
-html, body {
+html {
   background: var(--color-bg);
-  color: var(--color-text);
+  color-scheme: dark;
+}
+
+/*
+ * Fonts are wired here rather than in @theme: Tailwind v4 evaluates theme values at build time and
+ * silently drops any it cannot resolve, which quietly discarded the next/font variables and left
+ * every heading rendering in the mono fallback.
+ */
+:root {
+  --ui-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ui-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 body {
-  font-family: var(--font-mono);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--ui-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Ambient wash behind the page. Keeps large dark areas from reading as dead space. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 30rem at 15% -8%, rgba(52, 211, 153, 0.07), transparent 60%),
+    radial-gradient(45rem 25rem at 95% 0%, rgba(94, 234, 212, 0.045), transparent 55%);
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- primitives --- */
 
 .panel {
-  background: var(--color-panel);
+  background: linear-gradient(180deg, var(--color-surface) 0%, #0a0c11 100%);
   border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-panel);
 }
 
+.panel-raised {
+  background: linear-gradient(180deg, var(--color-surface-2) 0%, var(--color-surface) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+    0 12px 32px -12px rgba(0, 0, 0, 0.8);
+}
+
+/* Tabular figures so columns of numbers line up instead of shimmering as they update. */
 .num {
+  font-family: var(--ui-mono);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.mono {
+  font-family: var(--ui-mono);
+}
+
+pre, code {
+  font-family: var(--ui-mono);
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-dim);
+}
+
+.accent-text {
+  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.divide-row > * + * {
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- interaction --- */
+
+.row-hover {
+  transition: background-color 120ms ease;
+}
+.row-hover:hover {
+  background: var(--color-surface-2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0.6rem 1rem;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 80ms ease;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent));
+  color: #04120c;
+  box-shadow: 0 6px 20px -8px rgba(52, 211, 153, 0.7);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.btn-ghost {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: #38414f;
+}
+
+.input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  font-size: 15px;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 140ms ease;
+}
+.input:focus {
+  border-color: var(--color-accent);
+}
+.input::placeholder {
+  color: var(--color-dim);
+}
+
+/* --- loading --- */
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-2);
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.live-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .live-dot {
+    animation: none;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
 }

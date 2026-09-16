@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
-import { targetChain } from "@/lib/wagmi";
+import { targetChain } from "@/lib/chain";
 import { shortAddress } from "@/lib/format";
 
 const TABS = [
@@ -25,18 +25,16 @@ export function Nav() {
   const wrongChain = isConnected && chainId !== targetChain.id;
 
   return (
-    <header className="border-b border-[var(--color-border)]">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="grid size-7 place-items-center rounded bg-[var(--color-accent-dim)] text-sm font-bold text-[var(--color-accent)]">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-bg)_82%,transparent)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-5 py-3.5 sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="grid size-8 place-items-center rounded-[10px] bg-gradient-to-br from-[var(--color-accent-bright)] to-[var(--color-accent)] text-[15px] font-bold text-[#04120c] shadow-[0_4px_14px_-4px_rgba(52,211,153,0.6)]">
             Δ
           </span>
-          <span className="text-sm font-semibold tracking-tight">
-            Delta <span className="text-[var(--color-muted)]">on {targetChain.name}</span>
-          </span>
+          <span className="hidden text-[15px] font-semibold tracking-[-0.01em] sm:block">Delta</span>
         </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-0.5">
           {TABS.map((tab) => {
             const active =
               tab.href === "/docs" ? pathname.startsWith("/docs") : pathname === tab.href;
@@ -44,10 +42,10 @@ export function Nav() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`rounded px-3 py-1.5 text-xs transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
                   active
-                    ? "bg-[var(--color-panel-2)] text-[var(--color-text)]"
-                    : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text)]"
+                    : "text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"
                 }`}
               >
                 {tab.label}
@@ -57,32 +55,34 @@ export function Nav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <span className="hidden items-center gap-1.5 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[11px] text-[var(--color-muted)] md:inline-flex">
+            <span className="live-dot size-1.5 rounded-full bg-[var(--color-accent)]" />
+            {targetChain.name}
+          </span>
+
           {wrongChain && (
             <button
               type="button"
               onClick={() => switchChain({ chainId: targetChain.id })}
-              className="rounded border border-[var(--color-warn)] px-3 py-1.5 text-xs text-[var(--color-warn)]"
+              className="btn border border-[var(--color-warn)] bg-[var(--color-warn-dim)] text-[var(--color-warn)]"
             >
-              {`Switch to ${targetChain.name}`}
+              Switch network
             </button>
           )}
 
           {isConnected ? (
-            <button
-              type="button"
-              onClick={() => disconnect()}
-              className="rounded border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]"
-            >
-              {address ? shortAddress(address) : "Disconnect"}
+            <button type="button" onClick={() => disconnect()} className="btn btn-ghost">
+              <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
+              <span className="mono text-xs">{address ? shortAddress(address) : "Connected"}</span>
             </button>
           ) : (
             <button
               type="button"
               disabled={isPending || connectors.length === 0}
               onClick={() => connectors[0] && connect({ connector: connectors[0] })}
-              className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+              className="btn btn-primary"
             >
-              {isPending ? "Connecting…" : "Connect"}
+              {isPending ? "Connecting…" : "Connect wallet"}
             </button>
           )}
         </div>

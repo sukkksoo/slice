@@ -1,16 +1,11 @@
-import { A, Callout, Code, H2, LI, P, Strong, Table, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, LI, P, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "Staking liquidity — Delta on Arc" };
 
 export default function Staking() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">
-        For holders
-      </div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Staking liquidity</h1>
-      <P>What you put in, what you get back, and what can change in between.</P>
-
+      <DocHeader kicker="For holders" title="Staking liquidity" lede={"What you put in, what you get back, and what can change in between."} />
       <H2 id="depositing">Two ways to deposit</H2>
       <Table
         head={["Method", "What happens", "When to use it"]}

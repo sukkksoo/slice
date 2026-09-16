@@ -1,4 +1,4 @@
-import { A, Callout, Code, H2, LI, P, Pre, Strong, Table, UL } from "@/components/Prose";
+import { A, Callout, Code, H2, LI, P, Pre, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
 export const metadata = { title: "Building on Arc — Delta on Arc" };
 
@@ -11,13 +11,7 @@ ERC-20 interface    6 decimals   — 0x3600...0000
 export default function ArcPage() {
   return (
     <>
-      <div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Reference</div>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">Building on Arc</h1>
-      <P>
-        Arc is not a generic EVM chain. Four of its properties shaped this protocol, and two of them
-        are genuine traps.
-      </P>
-
+      <DocHeader kicker="Reference" title="Building on Arc" lede={"Arc is not a generic EVM chain. Four of its properties shaped this protocol, and two of them are genuine traps."} />
       <H2 id="gas">Gas is USDC</H2>
       <P>
         Arc is Circle&apos;s stablecoin-native L1. Transaction fees are denominated in USDC rather

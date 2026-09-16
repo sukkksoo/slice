@@ -1,15 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import type { Address } from "viem";
 import { maxUint256, parseUnits } from "viem";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
-import { Stat } from "@/components/Stat";
+import { LiveBadge, PairAvatar, Stat } from "@/components/ui";
 import { targetChain } from "@/lib/chain";
 import { ARC, erc20Abi, vaultAbi } from "@/lib/contracts";
-import { formatAmount, formatPercent, formatUsd, formatUsdCompact, shortAddress } from "@/lib/format";
-import { streamApr, tokenValueInUsdc } from "@/lib/format";
+import {
+  formatAmount,
+  formatPercent,
+  formatUsd,
+  formatUsdCompact,
+  shortAddress,
+  streamApr,
+  tokenValueInUsdc,
+} from "@/lib/format";
 
 type Mode = "usdc" | "pair";
 
@@ -51,7 +59,9 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const val = <T,>(i: number, fallback: T): T =>
     d?.[i]?.status === "success" ? (d[i]!.result as T) : fallback;
 
-  const symbol = val<string>(0, "…");
+  const shareSymbol = val<string>(0, "…");
+  // The share token is named `dLP-<asset>`; show the pool, not the wrapper.
+  const symbol = shareSymbol.replace(/^dLP-/, "");
   const assetToken = val<Address>(1, "0x0000000000000000000000000000000000000000");
   const usdcIsCurrency0 = val<boolean>(2, true);
   const totalSupply = val<bigint>(3, 0n);
@@ -65,8 +75,10 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const protocolFeeBps = Number(val<bigint | number>(11, 0));
   const userShares = val<bigint>(12, 0n);
   const userEarned = val<bigint>(13, 0n);
-  const usdcBalance = val<bigint>(14, 0n);
-  const usdcAllowance = val<bigint>(15, 0n);
+  // The sentinel holder is the zero address, whose balances are real on-chain values (burn
+  // address dust, and on Arc a large one). Never surface those as if they were the visitor's.
+  const usdcBalance = account ? val<bigint>(14, 0n) : 0n;
+  const usdcAllowance = account ? val<bigint>(15, 0n) : 0n;
 
   const [oracleWarm, sqrtPriceX96] = prices;
 
@@ -83,8 +95,8 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const am = assetMeta.data;
   const assetDecimals = am?.[0]?.status === "success" ? Number(am[0].result) : 18;
   const assetSymbol = am?.[1]?.status === "success" ? (am[1].result as string) : symbol;
-  const assetBalance = am?.[2]?.status === "success" ? (am[2].result as bigint) : 0n;
-  const assetAllowance = am?.[3]?.status === "success" ? (am[3].result as bigint) : 0n;
+  const assetBalance = account && am?.[2]?.status === "success" ? (am[2].result as bigint) : 0n;
+  const assetAllowance = account && am?.[3]?.status === "success" ? (am[3].result as bigint) : 0n;
 
   const totalRedeem = useReadContracts({
     contracts: [{ address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [totalSupply] }],
@@ -108,29 +120,16 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const yours = valueOf(userRedeem.data);
   const apr = streamApr(rewardRate, tvl.total, periodFinish);
 
-  const usdcAmount = useMemo(() => {
+  const parse = (v: string, dec: number) => {
     try {
-      return usdcInput ? parseUnits(usdcInput, 6) : 0n;
+      return v ? parseUnits(v, dec) : 0n;
     } catch {
       return 0n;
     }
-  }, [usdcInput]);
-
-  const assetAmount = useMemo(() => {
-    try {
-      return assetInput ? parseUnits(assetInput, assetDecimals) : 0n;
-    } catch {
-      return 0n;
-    }
-  }, [assetInput, assetDecimals]);
-
-  const withdrawShares = useMemo(() => {
-    try {
-      return withdrawInput ? parseUnits(withdrawInput, 18) : 0n;
-    } catch {
-      return 0n;
-    }
-  }, [withdrawInput]);
+  };
+  const usdcAmount = useMemo(() => parse(usdcInput, 6), [usdcInput]);
+  const assetAmount = useMemo(() => parse(assetInput, assetDecimals), [assetInput, assetDecimals]);
+  const withdrawShares = useMemo(() => parse(withdrawInput, 18), [withdrawInput]);
 
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: txHash });
@@ -156,32 +155,45 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     writeContract({ address: vault, abi: vaultAbi, functionName: "deposit", args: [a0, a1, 0n, holder] });
   };
 
+  const call = (fn: string) => writeContract({ address: vault, abi: vaultAbi, functionName: fn });
   const explorer = `${targetChain.blockExplorers?.default.url ?? ""}/address/${vault}`;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {symbol} <span className="text-[var(--color-muted)]">/ USDC</span>
-          </h1>
-          <a
-            href={explorer}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[11px] text-[var(--color-muted)] hover:text-[var(--color-text)]"
-          >
-            {shortAddress(vault)} ↗
-          </a>
-        </div>
-        {!oracleWarm && (
-          <div className="rounded border border-[var(--color-warn)] px-3 py-1.5 text-[11px] text-[var(--color-warn)]">
-            Oracle warming — single-sided deposits are paused
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <PairAvatar address={assetToken} symbol={symbol} />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+              {symbol} <span className="text-[var(--color-dim)]">/ USDC</span>
+            </h1>
+            <a
+              href={explorer}
+              target="_blank"
+              rel="noreferrer"
+              className="mono text-xs text-[var(--color-dim)] transition-colors hover:text-[var(--color-muted)]"
+            >
+              {shortAddress(vault)} ↗
+            </a>
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-2">
+          <LiveBadge warm={oracleWarm} />
+          <Link href="/pools" className="btn btn-ghost px-3 py-1.5 text-xs">
+            All pools
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {!oracleWarm && (
+        <div className="panel border-[var(--color-warn)] bg-[var(--color-warn-dim)] px-5 py-3.5 text-[13px] text-[var(--color-warn)]">
+          The price oracle is still filling its 30-minute window. Single-sided deposits and
+          compounding are paused until it does — two-sided deposits, withdrawals and claims are
+          unaffected.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="TVL" value={formatUsdCompact(tvl.total)} />
         <Stat
           label="Stream APR"
@@ -190,21 +202,24 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
           hint="run-rate, 7-day stream"
         />
         <Stat label="Your position" value={formatUsdCompact(yours.total)} />
-        <Stat label="Claimable" value={formatUsd(userEarned)} tone={userEarned > 0n ? "accent" : "default"} />
+        <Stat
+          label="Claimable"
+          value={formatUsd(userEarned)}
+          tone={userEarned > 0n ? "accent" : "default"}
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        {/* --- stake --- */}
-        <section className="panel space-y-4 p-5">
-          <div className="flex items-center gap-1">
+      <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+        <section className="panel-raised p-6">
+          <div className="inline-flex rounded-xl bg-[var(--color-bg)] p-1">
             {(["usdc", "pair"] as Mode[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`rounded px-3 py-1.5 text-xs ${
+                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
                   mode === m
-                    ? "bg-[var(--color-panel-2)] text-[var(--color-text)]"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text)]"
                     : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
                 }`}
               >
@@ -213,64 +228,74 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
             ))}
           </div>
 
-          <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+          <p className="mt-4 text-[13px] leading-relaxed text-[var(--color-muted)]">
             {mode === "usdc"
-              ? "The vault swaps half your USDC into the token inside one transaction, bounded by its TWAP price band. Anything the band stops it from deploying is refunded."
+              ? "The vault swaps half your USDC into the token in one transaction, bounded by its TWAP price band. Anything the band stops it deploying is refunded."
               : "Supply both sides. Whatever the position cannot absorb at the current ratio is refunded in the same transaction."}
           </p>
 
-          <Field
-            label="USDC"
-            value={usdcInput}
-            onChange={setUsdcInput}
-            balance={formatAmount(usdcBalance, 6)}
-            onMax={() => setUsdcInput(formatAmount(usdcBalance, 6, 6).replace(/,/g, ""))}
-          />
-
-          {mode === "pair" && (
+          <div className="mt-5 space-y-3">
             <Field
-              label={assetSymbol}
-              value={assetInput}
-              onChange={setAssetInput}
-              balance={formatAmount(assetBalance, assetDecimals)}
-              onMax={() => setAssetInput(formatAmount(assetBalance, assetDecimals, 6).replace(/,/g, ""))}
+              label="USDC"
+              value={usdcInput}
+              onChange={setUsdcInput}
+              balance={formatAmount(usdcBalance, 6)}
+              onMax={() => setUsdcInput(formatAmount(usdcBalance, 6, 6).replace(/,/g, ""))}
             />
-          )}
+            {mode === "pair" && (
+              <Field
+                label={assetSymbol}
+                value={assetInput}
+                onChange={setAssetInput}
+                balance={formatAmount(assetBalance, assetDecimals)}
+                onMax={() =>
+                  setAssetInput(formatAmount(assetBalance, assetDecimals, 6).replace(/,/g, ""))
+                }
+              />
+            )}
+          </div>
 
-          {needsUsdcApproval ? (
-            <Action busy={busy} onClick={() => approve(ARC.USDC)} label="Approve USDC" />
-          ) : needsAssetApproval ? (
-            <Action busy={busy} onClick={() => approve(assetToken)} label={`Approve ${assetSymbol}`} />
-          ) : (
-            <Action
-              busy={busy}
-              disabled={!account || usdcAmount === 0n || (mode === "usdc" && !oracleWarm)}
-              onClick={deposit}
-              label={account ? "Stake" : "Connect wallet"}
-            />
-          )}
+          <div className="mt-5">
+            {needsUsdcApproval ? (
+              <Action busy={busy} onClick={() => approve(ARC.USDC)} label="Approve USDC" />
+            ) : needsAssetApproval ? (
+              <Action
+                busy={busy}
+                onClick={() => approve(assetToken)}
+                label={`Approve ${assetSymbol}`}
+              />
+            ) : (
+              <Action
+                busy={busy}
+                disabled={!account || usdcAmount === 0n || (mode === "usdc" && !oracleWarm)}
+                onClick={deposit}
+                label={account ? "Stake" : "Connect wallet to stake"}
+              />
+            )}
+          </div>
         </section>
 
-        {/* --- position --- */}
-        <section className="panel space-y-4 p-5">
-          <div className="text-xs font-semibold">Your position</div>
+        <section className="panel-raised flex flex-col p-6">
+          <h2 className="text-[15px] font-semibold">Your position</h2>
 
-          <dl className="space-y-1.5 text-[11px]">
+          <dl className="mt-4 space-y-2.5">
             <Row label="Shares" value={formatAmount(userShares, 18, 6)} />
             <Row label="USDC backing" value={formatUsd(yours.usdc)} />
             <Row label={`${assetSymbol} backing`} value={formatAmount(yours.asset, assetDecimals)} />
             <Row label="Claimable USDC" value={formatUsd(userEarned)} accent={userEarned > 0n} />
           </dl>
 
-          <Action
-            busy={busy}
-            disabled={!account || userEarned === 0n}
-            onClick={() => writeContract({ address: vault, abi: vaultAbi, functionName: "claim" })}
-            label="Claim USDC"
-            variant="secondary"
-          />
+          <div className="mt-5">
+            <Action
+              busy={busy}
+              disabled={!account || userEarned === 0n}
+              onClick={() => call("claim")}
+              label={userEarned > 0n ? `Claim ${formatUsd(userEarned)}` : "Nothing to claim"}
+              variant={userEarned > 0n ? "primary" : "ghost"}
+            />
+          </div>
 
-          <div className="border-t border-[var(--color-border)] pt-4">
+          <div className="mt-6 border-t border-[var(--color-border)] pt-5">
             <Field
               label="Shares to withdraw"
               value={withdrawInput}
@@ -291,71 +316,63 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
                   })
                 }
                 label="Withdraw"
-                variant="secondary"
+                variant="ghost"
               />
             </div>
           </div>
         </section>
       </div>
 
-      {/* --- keeper --- */}
-      <section className="panel space-y-3 p-5">
-        <div className="text-xs font-semibold">Keeper actions</div>
-        <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
-          All three are permissionless. <span className="text-[var(--color-text)]">Poke</span> records
-          a price observation and is what keeps the TWAP window alive;{" "}
-          <span className="text-[var(--color-text)]">harvest</span> collects fees and starts the
-          stream; <span className="text-[var(--color-text)]">compound</span> turns the queued USDC
-          into more liquidity, which raises every share&apos;s backing without minting new shares.
+      <section className="panel p-6">
+        <h2 className="text-[15px] font-semibold">Keeper actions</h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-[var(--color-muted)]">
+          All of these are permissionless — the conditions decide validity, not the caller, and none
+          of them let a caller redirect funds.
         </p>
 
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Action busy={busy} onClick={() => writeContract({ address: vault, abi: vaultAbi, functionName: "poke" })} label="Poke oracle" variant="secondary" />
-          <Action busy={busy} onClick={() => writeContract({ address: vault, abi: vaultAbi, functionName: "harvest" })} label="Harvest" variant="secondary" />
+        <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <Action busy={busy} onClick={() => call("poke")} label="Poke oracle" variant="ghost" />
+          <Action busy={busy} onClick={() => call("harvest")} label="Harvest fees" variant="ghost" />
           <Action
             busy={busy}
             disabled={pendingCompound === 0n}
-            onClick={() => writeContract({ address: vault, abi: vaultAbi, functionName: "compound" })}
+            onClick={() => call("compound")}
             label={`Compound ${formatUsdCompact(pendingCompound)}`}
-            variant="secondary"
+            variant="ghost"
+          />
+          <Action
+            busy={busy}
+            disabled={pendingProtocolFees === 0n}
+            onClick={() => call("collectProtocolFees")}
+            label={`Pay treasury ${formatUsdCompact(pendingProtocolFees)}`}
+            variant="ghost"
           />
         </div>
 
-        <Action
-          busy={busy}
-          disabled={pendingProtocolFees === 0n}
-          onClick={() =>
-            writeContract({ address: vault, abi: vaultAbi, functionName: "collectProtocolFees" })
-          }
-          label={`Send ${formatUsdCompact(pendingProtocolFees)} protocol fees to treasury`}
-          variant="secondary"
-        />
-
-        <dl className="space-y-1.5 border-t border-[var(--color-border)] pt-3 text-[11px]">
+        <dl className="mt-6 grid gap-x-10 gap-y-3 border-t border-[var(--color-border)] pt-5 sm:grid-cols-2">
           <Row label="Queued to compound" value={formatUsd(pendingCompound)} />
           <Row
             label="Deferred token fees"
             value={formatAmount(pendingAssetFees, assetDecimals, 6)}
-            hint="awaiting a price the oracle will accept"
+            hint="awaiting a price the oracle accepts"
           />
           <Row label="Stream share" value={`${(streamBps / 100).toFixed(0)}% of net fees`} />
-          <Row label="Protocol fee" value={`${(protocolFeeBps / 100).toFixed(2)}% of harvest`} />
           <Row
-            label="Protocol fees accrued"
+            label="Protocol fee accrued"
             value={formatUsd(pendingProtocolFees)}
-            hint="pull-based, so a blocked treasury cannot freeze the vault"
+            hint={`${(protocolFeeBps / 100).toFixed(2)}% per harvest, pulled not pushed`}
           />
         </dl>
       </section>
 
       {writeError && (
-        <div className="panel border-[var(--color-danger)] px-4 py-3 text-[11px] text-[var(--color-danger)]">
+        <div className="panel border-[var(--color-danger)] px-5 py-4 text-[13px] text-[var(--color-danger)]">
           {writeError.message.split("\n")[0]}
         </div>
       )}
       {receipt.isSuccess && (
-        <div className="panel border-[var(--color-accent)] px-4 py-3 text-[11px] text-[var(--color-accent)]">
-          Confirmed.
+        <div className="panel border-[var(--color-accent)] px-5 py-4 text-[13px] text-[var(--color-accent)]">
+          Transaction confirmed.
         </div>
       )}
     </div>
@@ -377,18 +394,22 @@ function Field({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-[11px] text-[var(--color-muted)]">
-        <span>{label}</span>
-        <button type="button" onClick={onMax} className="hover:text-[var(--color-text)]">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="label">{label}</span>
+        <button
+          type="button"
+          onClick={onMax}
+          className="num text-xs text-[var(--color-dim)] transition-colors hover:text-[var(--color-accent)]"
+        >
           balance {balance}
         </button>
       </div>
       <input
         inputMode="decimal"
-        placeholder="0.0"
+        placeholder="0.00"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="num w-full rounded border border-[var(--color-border)] bg-[var(--color-panel-2)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+        className="input num"
       />
     </div>
   );
@@ -405,16 +426,15 @@ function Action({
   onClick: () => void;
   busy?: boolean;
   disabled?: boolean;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "ghost";
 }) {
-  const base = "w-full rounded px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-40";
-  const style =
-    variant === "primary"
-      ? "bg-[var(--color-accent)] text-black"
-      : "border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-accent)]";
-
   return (
-    <button type="button" onClick={onClick} disabled={busy || disabled} className={`${base} ${style}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy || disabled}
+      className={`btn w-full ${variant === "primary" ? "btn-primary" : "btn-ghost"}`}
+    >
       {busy ? "Pending…" : label}
     </button>
   );
@@ -433,11 +453,15 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-[var(--color-muted)]">
+      <dt className="text-[13px] text-[var(--color-muted)]">
         {label}
-        {hint && <span className="ml-1 opacity-70">({hint})</span>}
+        {hint && <span className="block text-[11px] text-[var(--color-dim)]">{hint}</span>}
       </dt>
-      <dd className={`num ${accent ? "text-[var(--color-accent)]" : ""}`}>{value}</dd>
+      <dd
+        className={`num shrink-0 text-[13px] ${accent ? "font-semibold text-[var(--color-up)]" : ""}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
