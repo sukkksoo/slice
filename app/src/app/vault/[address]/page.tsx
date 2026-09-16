@@ -16,7 +16,7 @@ import {
 } from "@/components/tx";
 import { LiveBadge, PairAvatar, Stat } from "@/components/ui";
 import { CompositionBar, FeeSplitBar, StreamRing } from "@/components/viz";
-import { ARC, erc20Abi, vaultAbi } from "@/lib/contracts";
+import { ARC, erc20Abi, vaultAbi, onArc } from "@/lib/contracts";
 import {
   formatAmount,
   formatPercent,
@@ -36,6 +36,7 @@ import {
   type PoolShape,
 } from "@/lib/preview";
 import { explorerAddress } from "@/lib/tx";
+import { targetChain } from "@/lib/chain";
 
 type Mode = "usdc" | "pair";
 type LastAction = "approve" | "deposit" | "withdraw" | "claim" | "keeper";
@@ -93,13 +94,13 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const { bps, setBps } = useSlippage();
 
   const reads = useReadContracts({
-    contracts: [
+    contracts: onArc([
       ...FIELDS.map((functionName) => ({ address: vault, abi: vaultAbi, functionName })),
       { address: vault, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
       { address: vault, abi: vaultAbi, functionName: "earned", args: [holder] },
       { address: ARC.USDC, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
       { address: ARC.USDC, abi: erc20Abi, functionName: "allowance", args: [holder, vault] },
-    ],
+    ]),
     query: { refetchInterval: 12_000 },
   });
 
@@ -146,12 +147,12 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const hasHook = Boolean(poolKey && poolKey.hooks !== zeroAddress);
 
   const assetMeta = useReadContracts({
-    contracts: [
+    contracts: onArc([
       { address: assetToken, abi: erc20Abi, functionName: "decimals" },
       { address: assetToken, abi: erc20Abi, functionName: "symbol" },
       { address: assetToken, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
       { address: assetToken, abi: erc20Abi, functionName: "allowance", args: [holder, vault] },
-    ],
+    ]),
     query: { enabled: assetToken !== zeroAddress, refetchInterval: 12_000 },
   });
 
@@ -173,17 +174,17 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const withdrawShares = useMemo(() => parse(withdrawInput, 18), [withdrawInput]);
 
   const totalRedeem = useReadContracts({
-    contracts: [{ address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [totalSupply] }],
+    contracts: onArc([{ address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [totalSupply] }]),
     query: { enabled: totalSupply > 0n, refetchInterval: 12_000 },
   });
   const userRedeem = useReadContracts({
-    contracts: [{ address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [userShares] }],
+    contracts: onArc([{ address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [userShares] }]),
     query: { enabled: userShares > 0n, refetchInterval: 12_000 },
   });
   const withdrawRedeem = useReadContracts({
-    contracts: [
+    contracts: onArc([
       { address: vault, abi: vaultAbi, functionName: "previewRedeem", args: [withdrawShares] },
-    ],
+    ]),
     query: { enabled: withdrawShares > 0n && withdrawShares <= userShares },
   });
 

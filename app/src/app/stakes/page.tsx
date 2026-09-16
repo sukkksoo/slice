@@ -18,6 +18,7 @@ import { useVaults, type VaultSummary } from "@/hooks/useVaults";
 import { vaultAbi } from "@/lib/contracts";
 import { formatSig, formatUsd, formatUsdCompact } from "@/lib/format";
 import { withSlippage } from "@/lib/preview";
+import { targetChain } from "@/lib/chain";
 
 export default function StakesPage() {
   const guard = useNetworkGuard();
@@ -186,6 +187,7 @@ function PositionRow({
 }) {
   // What the whole position redeems for right now, so the unstake carries a real floor.
   const redeem = useReadContract({
+    chainId: targetChain.id,
     address: v.address,
     abi: vaultAbi,
     functionName: "previewRedeem",

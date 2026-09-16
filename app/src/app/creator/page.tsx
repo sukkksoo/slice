@@ -10,9 +10,10 @@ import { NotDeployed } from "@/components/Empty";
 import { Action, TxStatus, useAfterConfirm, useNetworkGuard } from "@/components/tx";
 import { Badge, SectionHeading } from "@/components/ui";
 import { useVaults } from "@/hooks/useVaults";
-import { ARC, erc20Abi, FACTORY_ADDRESS, factoryAbi, routerAbi } from "@/lib/contracts";
+import { ARC, erc20Abi, FACTORY_ADDRESS, factoryAbi, routerAbi, onArc } from "@/lib/contracts";
 import { formatUsd, shortAddress } from "@/lib/format";
 import { explorerAddress } from "@/lib/tx";
+import { targetChain } from "@/lib/chain";
 
 const BURN = "0x000000000000000000000000000000000000dEaD" as Address;
 
@@ -59,13 +60,13 @@ export default function CreatorPage() {
   const holder = account ?? zeroAddress;
 
   const reads = useReadContracts({
-    contracts: router
+    contracts: onArc(router
       ? [
           ...ROUTER_FIELDS.map((functionName) => ({ address: router, abi: routerAbi, functionName })),
           { address: ARC.USDC, abi: erc20Abi, functionName: "balanceOf", args: [router] },
           { address: ARC.USDC, abi: erc20Abi, functionName: "allowance", args: [holder, router] },
         ]
-      : [],
+      : []),
     query: { enabled: Boolean(router), refetchInterval: 12_000 },
   });
   const d = reads.data;

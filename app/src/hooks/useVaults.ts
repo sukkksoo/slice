@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import type { Address } from "viem";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 
-import { FACTORY_ADDRESS, factoryAbi, vaultAbi, erc20Abi } from "@/lib/contracts";
+import { FACTORY_ADDRESS, factoryAbi, vaultAbi, erc20Abi, onArc } from "@/lib/contracts";
 import { streamApr, tokenValueInUsdc } from "@/lib/format";
 import { deviationBps } from "@/lib/preview";
+import { targetChain } from "@/lib/chain";
 
 export type VaultSummary = {
   address: Address;
@@ -63,6 +64,7 @@ export function useVaultAddresses() {
   const enabled = Boolean(FACTORY_ADDRESS);
 
   const countQuery = useReadContract({
+    chainId: targetChain.id,
     address: FACTORY_ADDRESS as Address,
     abi: factoryAbi,
     functionName: "vaultCount",
@@ -72,12 +74,12 @@ export function useVaultAddresses() {
   const count = Number((countQuery.data as bigint | undefined) ?? 0n);
 
   const listQuery = useReadContracts({
-    contracts: Array.from({ length: count }, (_, i) => ({
+    contracts: onArc(Array.from({ length: count }, (_, i) => ({
       address: FACTORY_ADDRESS as Address,
       abi: factoryAbi,
       functionName: "allVaults",
       args: [BigInt(i)],
-    })),
+    }))),
     query: { enabled: enabled && count > 0 },
   });
 
@@ -127,7 +129,7 @@ export function useVaults() {
   );
 
   const batch = useReadContracts({
-    contracts,
+    contracts: onArc(contracts),
     query: { enabled: addresses.length > 0, refetchInterval: 15_000 },
   });
 
@@ -143,12 +145,12 @@ export function useVaults() {
   }, [batch.data, addresses]);
 
   const redeemBatch = useReadContracts({
-    contracts: addresses.map((vault, i) => ({
+    contracts: onArc(addresses.map((vault, i) => ({
       address: vault,
       abi: vaultAbi,
       functionName: "previewRedeem",
       args: [supplies[i] ?? 0n],
-    })),
+    }))),
     query: { enabled: supplies.length > 0 && supplies.some((s) => s > 0n), refetchInterval: 15_000 },
   });
 

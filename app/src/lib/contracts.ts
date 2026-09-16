@@ -91,3 +91,20 @@ export const erc20Abi = [
     stateMutability: "view",
   },
 ] as const;
+
+/**
+ * Pin a batch of contract reads to the chain the app is about.
+ *
+ * wagmi's read hooks default to the *connected* chain, so a visitor whose wallet sits on another
+ * network has every Arc address queried over there. The calls do not fail loudly — they return
+ * empty data, which surfaces as "Cannot decode zero data" and an empty pool list on a protocol
+ * that demonstrably has a live vault. What the app reads is a property of the protocol, not of
+ * whatever network the visitor last used, so it is always stated.
+ *
+ * `useReadContract` (singular) takes `chainId` at the top level; the plural form wants it on each
+ * entry, which is what this is for. The cast preserves the tuple type so result inference at the
+ * call site is unchanged.
+ */
+export function onArc<T extends readonly unknown[]>(contracts: T): T {
+  return contracts.map((c) => ({ ...(c as object), chainId: targetChain.id })) as unknown as T;
+}

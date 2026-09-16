@@ -7,7 +7,7 @@ import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteCon
 
 import { Badge, TokenAvatar } from "@/components/ui";
 import { targetChain } from "@/lib/chain";
-import { ARC, erc20Abi, factoryAbi, FACTORY_ADDRESS } from "@/lib/contracts";
+import { ARC, erc20Abi, factoryAbi, FACTORY_ADDRESS, onArc } from "@/lib/contracts";
 import {
   FEE_TIERS,
   poolId,
@@ -44,7 +44,7 @@ export default function NewPoolPage() {
   const id = key ? poolId(key) : null;
 
   const reads = useReadContracts({
-    contracts: id
+    contracts: onArc(id
       ? [
           { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getSlot0", args: [id] },
           { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getLiquidity", args: [id] },
@@ -58,7 +58,7 @@ export default function NewPoolPage() {
               }
             : { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getLiquidity", args: [id] },
         ]
-      : [],
+      : []),
     query: { enabled: Boolean(id) },
   });
 

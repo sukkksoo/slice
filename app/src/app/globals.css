@@ -10,14 +10,18 @@
  * never compete with brand colour for attention.
  */
 @theme {
-  /* canvas + surfaces */
-  --color-bg: #eceefb;
-  --color-bg-deep: #dfe3f7;
+  /* canvas + surfaces
+   *
+   * The canvas is deeper than the panels sitting on it, so a card reads as raised without relying
+   * on shadow alone. Panels stay white: against a periwinkle ground that is what gives the page
+   * its contrast, and dropping them to grey collapses the whole hierarchy. */
+  --color-bg: #dde1f5;
+  --color-bg-deep: #c9cfec;
   --color-surface: #ffffff;
-  --color-surface-2: #f6f7fe;
-  --color-surface-3: #eceefb;
-  --color-border: #dcdff3;
-  --color-border-strong: #c3c8e8;
+  --color-surface-2: #f2f4fd;
+  --color-surface-3: #e6e9f9;
+  --color-border: #ccd2ec;
+  --color-border-strong: #aab2dc;
 
   /* text — Circle licorice and its tints */
   --color-text: #221d33;

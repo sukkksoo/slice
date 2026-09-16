@@ -11,5 +11,9 @@ contracts/broadcast/
 *.tsbuildinfo
 .vercel/
 
-# stray debug harnesses; screenshots and probes belong in the scratchpad
-app/*.mjs
+# Stray debug harnesses; screenshots and probes belong in the scratchpad. Scoped to the name
+# rather than the extension: app/postcss.config.mjs is real config, and a blanket app/*.mjs
+# once took it out along with the junk, which silently disabled Tailwind for the whole site.
+app/probe*.mjs
+app/debug*.mjs
+app/d.mjs
