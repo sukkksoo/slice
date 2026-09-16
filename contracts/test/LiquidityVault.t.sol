@@ -225,7 +225,11 @@ contract LiquidityVaultTest is DeltaTestBase {
         vault.depositUsdc(100_000e6, 0, alice);
     }
 
-    function test_protocolFee_accruesToTreasury() public {
+    /// @notice Protocol fees accrue on harvest and are collected separately.
+    /// @dev Pull, not push. Arc's USDC reverts for a blocklisted party, and `harvest` sits on the
+    ///      deposit and withdraw paths — so pushing to the treasury here would let a third party
+    ///      freeze the vault by blocklisting one address. See ProtocolFees.t.sol.
+    function test_protocolFee_accruesThenCollects() public {
         _seed(alice, 1_000_000e6, 1_000_000e18);
         _warmOracle();
         _generateFees(50_000e6, 50_000e18);
@@ -233,7 +237,13 @@ contract LiquidityVaultTest is DeltaTestBase {
         uint256 before = usdc.balanceOf(treasury);
         vault.harvest();
 
-        assertGt(usdc.balanceOf(treasury) - before, 0, "treasury received no protocol fee");
+        uint256 accrued = vault.pendingProtocolFees();
+        assertGt(accrued, 0, "no protocol fee accrued");
+        assertEq(usdc.balanceOf(treasury), before, "harvest pushed funds to the treasury");
+
+        assertEq(vault.collectProtocolFees(), accrued, "collection paid a different amount");
+        assertEq(usdc.balanceOf(treasury) - before, accrued, "treasury not paid on collection");
+        assertEq(vault.pendingProtocolFees(), 0, "accrual not cleared");
     }
 
     function test_rewardsFollowShareTransfers() public {

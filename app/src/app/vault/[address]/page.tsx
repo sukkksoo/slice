@@ -35,6 +35,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
       { address: vault, abi: vaultAbi, functionName: "periodFinish" },
       { address: vault, abi: vaultAbi, functionName: "pendingCompound" },
       { address: vault, abi: vaultAbi, functionName: "pendingAssetFees" },
+      { address: vault, abi: vaultAbi, functionName: "pendingProtocolFees" },
       { address: vault, abi: vaultAbi, functionName: "streamBps" },
       { address: vault, abi: vaultAbi, functionName: "protocolFeeBps" },
       { address: vault, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
@@ -58,12 +59,13 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const periodFinish = val<bigint>(6, 0n);
   const pendingCompound = val<bigint>(7, 0n);
   const pendingAssetFees = val<bigint>(8, 0n);
-  const streamBps = Number(val<bigint | number>(9, 0));
-  const protocolFeeBps = Number(val<bigint | number>(10, 0));
-  const userShares = val<bigint>(11, 0n);
-  const userEarned = val<bigint>(12, 0n);
-  const usdcBalance = val<bigint>(13, 0n);
-  const usdcAllowance = val<bigint>(14, 0n);
+  const pendingProtocolFees = val<bigint>(9, 0n);
+  const streamBps = Number(val<bigint | number>(10, 0));
+  const protocolFeeBps = Number(val<bigint | number>(11, 0));
+  const userShares = val<bigint>(12, 0n);
+  const userEarned = val<bigint>(13, 0n);
+  const usdcBalance = val<bigint>(14, 0n);
+  const usdcAllowance = val<bigint>(15, 0n);
 
   const [oracleWarm, sqrtPriceX96] = prices;
 
@@ -318,6 +320,16 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
           />
         </div>
 
+        <Action
+          busy={busy}
+          disabled={pendingProtocolFees === 0n}
+          onClick={() =>
+            writeContract({ address: vault, abi: vaultAbi, functionName: "collectProtocolFees" })
+          }
+          label={`Send ${formatUsdCompact(pendingProtocolFees)} protocol fees to treasury`}
+          variant="secondary"
+        />
+
         <dl className="space-y-1.5 border-t border-[var(--color-border)] pt-3 text-[11px]">
           <Row label="Queued to compound" value={formatUsd(pendingCompound)} />
           <Row
@@ -327,6 +339,11 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
           />
           <Row label="Stream share" value={`${(streamBps / 100).toFixed(0)}% of net fees`} />
           <Row label="Protocol fee" value={`${(protocolFeeBps / 100).toFixed(2)}% of harvest`} />
+          <Row
+            label="Protocol fees accrued"
+            value={formatUsd(pendingProtocolFees)}
+            hint="pull-based, so a blocked treasury cannot freeze the vault"
+          />
         </dl>
       </section>
 

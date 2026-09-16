@@ -27,6 +27,13 @@ path for no benefit. `ArcChain.to6`/`from6` guard the boundary where conversion 
 **There is no WETH.** Delta on Robinhood Chain streams fee rewards in WETH. On Arc the natural
 denominator is USDC, which is also what every token pairs against.
 
+**USDC is not an ordinary ERC-20.** It is a thin wrapper over two chain precompiles: a compliance
+check at `0x1800…0001` (`isBlocklisted(address)`) and a native balance move at `0x1800…0000`. Every
+transfer consults the blocklist and reverts for a blocked party — and Circle, not the protocol and
+not the user, decides who that is. Any USDC *push* sitting on a shared code path is therefore a
+freeze vector controlled by a third party. Protocol fees are pull-based because of this; see
+[Freeze resistance](#freeze-resistance).
+
 **Uniswap v4 positions are NFTs, and v4 has no built-in oracle.** So:
 
 - *Shares, not NFTs.* Each vault owns one full-range position and issues ERC-20 shares against it.
@@ -50,8 +57,8 @@ only for pools deployed with that hook, which is nearly none of them.
 ```
 swap fees accrue on the vault's position
         │
-   harvest()  ── protocol fee ──►  treasury
-        │
+   harvest()  ── protocol fee ──► accrued ──► collectProtocolFees() ──► treasury
+        │                                     (pulled, never pushed)
         ├── swap the token side into USDC (TWAP-bounded)
         │
         ├── streamBps  ──►  7-day linear stream to stakers  ──► claim()
@@ -73,6 +80,20 @@ round trip on a 1M-deep pool. See `test_lateDepositor_cannotSnipeAccruedFees`.
 swap pays LP fees back to its own position — *after* the collection point. Those have to be swept
 before the next `modifyLiquidity`, or the next depositor nets them against their settlement. Same
 bug, second-order.
+
+### Freeze resistance
+
+`harvest()` runs at the top of `deposit`, `depositUsdc`, `withdraw` and `compound`. Anything on that
+path that a third party can make revert freezes the vault — **including withdrawals**.
+
+The first version pushed the protocol fee to the treasury inside `harvest`. Because Arc's USDC
+reverts for a blocklisted address, blocklisting the treasury would have bricked every user's funds
+permanently. Fees now accrue to `pendingProtocolFees` and the treasury pulls them with
+`collectProtocolFees()`, so a blocked treasury only fails its own collection.
+
+The same reasoning is why `claim()` and withdrawal payouts push only to the caller's own chosen
+address: a blocked staker is their own problem and cannot affect anyone else. `ProtocolFees.t.sol`
+pins all of this.
 
 ### Creator fee routing
 
@@ -104,7 +125,11 @@ contracts/          Foundry
       PoolOracle.sol      Self-recorded TWAP accumulator
       FullRange.sol       Tick-range and amount maths
       Settler.sol         v4 settle/take helpers
-  test/                   72 tests, run against both currency orderings
+  test/                   79 tests; core suites run against both currency orderings
+    LiquidityVault.t.sol  Staking, streaming, compounding, fee-sniping resistance
+    FeeRouter.t.sol       Cadence and milestone injection
+    ProtocolFees.t.sol    Blocklist freeze resistance
+    ArcFork.t.sol         The protocol against the live Arc PoolManager
 app/                Next.js 16 + wagmi + viem dashboard
 ```
 
@@ -123,10 +148,22 @@ puts both halves under it.
 ```bash
 cd contracts
 forge build
-forge test                      # 72 tests
+forge test                      # 75 offline tests
 forge test --profile deep       # 100k fuzz runs
 forge build --sizes             # confirm everything is under 24,576 bytes
+
+# The 4 fork tests are skipped unless an RPC is provided
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io forge test   # 79 tests
 ```
+
+The fork suite runs against the **real** Arc PoolManager and the real USDC contract. It is what
+caught the blocklist freeze vector described above, and it pins the two assumptions the protocol
+makes about Arc's USDC: that the 6-decimal ERC-20 view mirrors the 18-decimal native balance, and
+that transfers revert for a blocklisted party.
+
+Arc's USDC cannot execute a transfer inside a Foundry fork at all — its balance-move precompile has
+no implementation in revm — so the lifecycle tests etch a standard ERC-20 at the USDC address. The
+PoolManager is the subject there; the real token is tested separately.
 
 ### Deploying
 
@@ -189,8 +226,14 @@ Checked on mainnet at block 21,172,821:
 - **The oracle needs warming.** Automated swaps require a 30-minute TWAP window. Until it fills,
   harvest defers the token-side conversion rather than reverting — deposits and withdrawals keep
   working — but `depositUsdc` and `compound` revert.
-- **`VaultDeployer` has 2,056 bytes of headroom.** Any material growth in `LiquidityVault` will
+- **`VaultDeployer` has 1,898 bytes of headroom.** Any material growth in `LiquidityVault` will
   push it over EIP-170. Check `forge build --sizes` before shipping changes.
+- **A blocklisted vault is unrecoverable.** The pull-based fee design protects against a blocked
+  *treasury* or *staker*, but if Circle blocklists a vault address itself, that vault's funds are
+  frozen. Nothing on-chain can defend against this; it is inherent to building on Arc's USDC.
+- **`PositionManager` and `UniversalRouter` differ on testnet.** The constants in `ArcChain` are
+  mainnet addresses and have no code on 5042002. Nothing in the protocol calls them, but do not
+  rely on them for tooling without checking the chain first.
 - **No indexer.** The dashboard reads the factory registry and vault state directly over RPC. It
   does not show historical fee charts or 24h volume, which would need an indexer Arc does not yet
   have.

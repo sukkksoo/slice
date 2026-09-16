@@ -117,6 +117,9 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     /// @notice Asset-side fees held by the vault, awaiting a swap the oracle will permit.
     uint256 public pendingAssetFees;
 
+    /// @notice Protocol fees accrued and awaiting collection by the treasury.
+    uint256 public pendingProtocolFees;
+
     // --- governance-set parameters ---
 
     address public owner;
@@ -155,6 +158,7 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     event AssetFeesDeferred(uint256 pendingAssetFees);
     event Compounded(uint256 usdcIn, uint128 liquidityAdded);
     event RewardPaid(address indexed account, uint256 amount);
+    event ProtocolFeesCollected(address indexed treasury, uint256 amount);
     event ParametersUpdated(uint16 protocolFeeBps, uint16 streamBps, uint16 maxDeviationBps);
     event OwnerUpdated(address indexed previousOwner, address indexed newOwner);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
@@ -353,6 +357,18 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         reservedRewards -= amount;
         IERC20(Currency.unwrap(rewardCurrency)).safeTransfer(msg.sender, amount);
         emit RewardPaid(msg.sender, amount);
+    }
+
+    /// @notice Send accrued protocol fees to the treasury.
+    /// @dev Permissionless, because the destination is fixed: the caller cannot redirect anything.
+    ///      Keeping it separate from `harvest` is what stops a blocked or reverting treasury from
+    ///      taking the whole vault down with it.
+    function collectProtocolFees() external nonReentrant returns (uint256 amount) {
+        amount = pendingProtocolFees;
+        if (amount == 0) return 0;
+        pendingProtocolFees = 0;
+        IERC20(Currency.unwrap(rewardCurrency)).safeTransfer(treasury, amount);
+        emit ProtocolFeesCollected(treasury, amount);
     }
 
     // --- keeper entrypoints (permissionless) ---
@@ -635,10 +651,14 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
 
         if (proceeds == 0) return (0, 0);
 
+        // Accrue the protocol fee rather than pushing it. Arc's USDC consults Circle's compliance
+        // precompile on every transfer and reverts for a blocklisted party. A push here would put
+        // that third-party decision on the critical path of `harvest`, which runs at the top of
+        // deposit, withdraw and compound — so blocklisting the treasury would freeze the vault
+        // permanently, users' withdrawals included. Pull-based, a blocked treasury only fails its
+        // own collection.
         uint256 protocolCut = (proceeds * protocolFeeBps) / BPS;
-        if (protocolCut > 0) {
-            IERC20(Currency.unwrap(rewardCurrency)).safeTransfer(treasury, protocolCut);
-        }
+        if (protocolCut > 0) pendingProtocolFees += protocolCut;
         uint256 distributable = proceeds - protocolCut;
 
         streamed = (distributable * streamBps) / BPS;
