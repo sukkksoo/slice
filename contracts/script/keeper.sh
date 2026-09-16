@@ -46,6 +46,8 @@ set -euo pipefail
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
 FACTORY="${SLICE_FACTORY:-0x219DF226816e4CCcAAF8C7fAB7469837e857c05b}"
 INTERVAL="${KEEPER_INTERVAL:-90}"
+# How many depositless vaults to keep warm anyway, so a newly listed pool is usable at once.
+MAX_EMPTY="${KEEPER_MAX_EMPTY:-3}"
 # Two ways to sign, because the two places this runs want different things. An encrypted keystore
 # is right on a laptop, where a person can type a password; a raw key is what CI has to use, since
 # there is nobody there to prompt.
@@ -118,29 +120,32 @@ send() { LAST_OUT=$(cast send --async "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 round() {
-  local count vault warm pending supply skipped
+  local count vault warm pending supply skipped warmed_empty
   count=$(call "$FACTORY" "vaultCount()(uint256)")
   [ -n "$count" ] || { echo "$(date -u +%T) cannot reach the factory"; return; }
   skipped=0
+  warmed_empty=0
 
   for ((i = 0; i < count; i++)); do
     vault=$(call "$FACTORY" "allVaults(uint256)(address)" "$i")
     [ -n "$vault" ] || continue
 
-    # Skip vaults nobody has staked in.
+    # Empty vaults: warm the first few, skip the rest.
     #
-    # Creating a vault is permissionless, so anyone may add one at any time and whoever runs this
-    # pays for it forever after. An empty vault has no fees to harvest and no depositor waiting on
-    # a price, so a warm oracle buys nothing — and without this the running cost is set by how many
-    # vaults strangers have created rather than by how much money the protocol actually holds.
+    # Creating a vault is permissionless, so anyone may add one and whoever runs this pays for it
+    # from then on. Skipping every empty vault caps that cost — but on its own it deadlocks a new
+    # pool, because a single-sided deposit needs a warm oracle and the oracle will not warm until
+    # someone has deposited. The first depositor would have to be told to supply both sides.
     #
-    # The moment somebody deposits, two-sided deposits work without any oracle at all, so the vault
-    # is picked up on the next cycle and warms from there.
+    # So a small number of empty vaults are kept warm, which is what makes a freshly listed pool
+    # usable immediately, and the rest are skipped, which is what stops fifty stranger-created
+    # vaults from setting the bill. Raise or lower with KEEPER_MAX_EMPTY.
     supply=$(call "$vault" "totalSupply()(uint256)")
-    if [ "${supply:-0}" = "0" ]; then
+    if [ "${supply:-0}" = "0" ] && [ "$warmed_empty" -ge "$MAX_EMPTY" ]; then
       skipped=$((skipped + 1))
       continue
     fi
+    [ "${supply:-0}" = "0" ] && warmed_empty=$((warmed_empty + 1))
 
     if ! send "$vault" "poke()"; then
       # The reason matters: a bad password, an empty wallet and an RPC timeout all look the same
