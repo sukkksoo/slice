@@ -8,9 +8,10 @@ import { Badge, LiveBadge, PairAvatar, SectionHeading, StatBar } from "@/compone
 import { MiniMeter } from "@/components/viz";
 import { useVaults, type VaultSummary } from "@/hooks/useVaults";
 import { formatPercent, formatUsdCompact, shortAddress } from "@/lib/format";
+import { ReadError } from "@/components/ReadError";
 
 export default function PoolsPage() {
-  const { vaults, isLoading, configured, error } = useVaults();
+  const { vaults, isLoading, configured, error, refetch } = useVaults();
 
   const totals = useMemo(() => {
     const tvl = vaults.reduce((acc, v) => acc + v.tvlUsdc, 0n);
@@ -65,11 +66,7 @@ export default function PoolsPage() {
         )}
       </div>
 
-      {error && (
-        <div className="panel mt-5 border-[var(--color-danger)] px-5 py-4 text-sm text-[var(--color-danger)]">
-          Failed to read from Arc: {error.message}
-        </div>
-      )}
+      {error && <ReadError error={error as Error} onRetry={refetch} />}
 
       {topByApr && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">

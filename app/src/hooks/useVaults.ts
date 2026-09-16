@@ -68,7 +68,7 @@ export function useVaultAddresses() {
     address: FACTORY_ADDRESS as Address,
     abi: factoryAbi,
     functionName: "vaultCount",
-    query: { enabled },
+    query: { enabled, retry: 3, retryDelay: (n) => 400 * 2 ** n },
   });
 
   const count = Number((countQuery.data as bigint | undefined) ?? 0n);
@@ -80,7 +80,7 @@ export function useVaultAddresses() {
       functionName: "allVaults",
       args: [BigInt(i)],
     }))),
-    query: { enabled: enabled && count > 0 },
+    query: { enabled: enabled && count > 0, retry: 3, retryDelay: (n) => 400 * 2 ** n },
   });
 
   const addresses = useMemo(
@@ -130,7 +130,7 @@ export function useVaults() {
 
   const batch = useReadContracts({
     contracts: onArc(contracts),
-    query: { enabled: addresses.length > 0, refetchInterval: 15_000 },
+    query: { enabled: addresses.length > 0, refetchInterval: 15_000, retry: 3, retryDelay: (n) => 400 * 2 ** n },
   });
 
   // Second pass: now that totalSupply is known, ask what the full supply redeems for. That is the
@@ -151,7 +151,7 @@ export function useVaults() {
       functionName: "previewRedeem",
       args: [supplies[i] ?? 0n],
     }))),
-    query: { enabled: supplies.length > 0 && supplies.some((s) => s > 0n), refetchInterval: 15_000 },
+    query: { enabled: supplies.length > 0 && supplies.some((s) => s > 0n), refetchInterval: 15_000, retry: 3 },
   });
 
   const vaults = useMemo<VaultSummary[]>(() => {
