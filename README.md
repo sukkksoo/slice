@@ -10,7 +10,7 @@ and streamed over seven days.
 budget, into pool liquidity automatically on-chain, on a schedule or at market-cap milestones.
 
 **Live on Arc testnet** — app at [delta-arc](https://delta-arc-sukiransandu-9022s-projects.vercel.app),
-factory at `0x28e745eBf4b8E8b758c7B4a11b2e453322cDC3CA` (chain 5042002).
+factory at `0xc013A0a50A0841d1341EA85461431411DC4cb514` (chain 5042002).
 
 > **Unaudited.** Deployed contracts hold user funds. Do not put real money in this without an
 > audit. See [Known limitations](#known-limitations).
