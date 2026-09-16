@@ -79,7 +79,8 @@
   }
 
   body {
-    background: var(--color-bg);
+    /* No background here: html carries it. The ambient field below paints at z-index -1, which
+       would be hidden by a background on body itself. */
     color: var(--color-text);
     font-family: var(--ui-sans);
     -webkit-font-smoothing: antialiased;
@@ -95,7 +96,7 @@
     position: fixed;
     inset: -20%;
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
     background:
       radial-gradient(42rem 30rem at 10% 0%, rgba(91, 140, 255, 0.20), transparent 60%),
       radial-gradient(38rem 28rem at 92% 6%, rgba(139, 122, 255, 0.17), transparent 58%),
@@ -104,10 +105,12 @@
     animation: sl-wash 30s ease-in-out infinite;
   }
 
-  body > * {
-    position: relative;
-    z-index: 1;
-  }
+  /* There was a `body > * { position: relative; z-index: 1 }` here, to lift content above the
+     ambient field. It applied to every direct child of body — including elements this app does not
+     own. It made the header unsticky, dropped the connect menu behind <main>, and buried
+     WalletConnect's modal, which mounts itself onto body, at z-index 1. The field sits at -1
+     instead, so nothing has to be lifted over it and third-party overlays keep their own
+     stacking. */
 
 }
 
