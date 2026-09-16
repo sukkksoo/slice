@@ -18,6 +18,7 @@ import {ArcChain} from "../src/libraries/ArcChain.sol";
 contract Deploy is Script {
     error WrongChain(uint256 actual);
     error PoolManagerMissing();
+    error UsdcMissing();
 
     function run() external returns (VaultFactory factory, VaultDeployer deployer) {
         address owner = vm.envAddress("DELTA_OWNER");
@@ -28,10 +29,15 @@ contract Deploy is Script {
         if (block.chainid != ArcChain.CHAIN_ID && block.chainid != ArcChain.TESTNET_CHAIN_ID) {
             revert WrongChain(block.chainid);
         }
+        // The two addresses the protocol actually calls. Both are verified to carry identical
+        // bytecode on mainnet and testnet, but check rather than assume: deploying against an
+        // empty address would produce a factory that reverts on every vault creation.
         if (ArcChain.POOL_MANAGER.code.length == 0) revert PoolManagerMissing();
+        if (ArcChain.USDC_ERC20.code.length == 0) revert UsdcMissing();
 
         console2.log("chain id        ", block.chainid);
         console2.log("pool manager    ", ArcChain.POOL_MANAGER);
+        console2.log("usdc (erc20)    ", ArcChain.USDC_ERC20);
         console2.log("owner           ", owner);
         console2.log("treasury        ", treasury);
 

@@ -19,12 +19,27 @@ library ArcChain {
     /// @notice Scale factor between the 18-decimal native representation and the 6-decimal ERC-20.
     uint256 internal constant USDC_SCALE = 1e12;
 
-    // --- Uniswap v4 (Arc mainnet) ---
+    // --- Uniswap v4: used by this protocol ---
+    //
+    // Verified to carry identical bytecode on Arc mainnet (5042) and Arc testnet (5042002), which
+    // is what lets one set of constants serve both networks. `POOL_MANAGER` and `USDC_ERC20` above
+    // are the only two addresses the deployed contracts ever call.
     address internal constant POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
+
+    // --- Uniswap v4: reference only, MAINNET addresses ---
+    //
+    // Nothing in this protocol calls these; the vault talks to the PoolManager directly rather
+    // than routing through the periphery. They are kept for integrators and tooling.
+    //
+    // WARNING: these are mainnet-only. `POSITION_MANAGER` and `UNIVERSAL_ROUTER` have no code at
+    // these addresses on Arc testnet, and the testnet equivalents are not published anywhere we
+    // could verify. Do not assume they resolve on 5042002.
     address internal constant POSITION_MANAGER = 0x6049c9a0e26405C0985f9E3685C87d0aE917f82B;
+    address internal constant UNIVERSAL_ROUTER = 0x4fcA4a51Ab4F23A7447b3284fBd7D73289A89Fb1;
+
+    // Present on both networks, but still unused by the deployed contracts.
     address internal constant STATE_VIEW = 0xF3334192D15450CdD385c8B70e03f9A6bD9E673b;
     address internal constant QUOTER = 0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94;
-    address internal constant UNIVERSAL_ROUTER = 0x4fcA4a51Ab4F23A7447b3284fBd7D73289A89Fb1;
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     error NotUsdc();

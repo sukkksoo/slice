@@ -10,13 +10,24 @@ export const vaultAbi = LiquidityVaultAbi as Abi;
 export const factoryAbi = VaultFactoryAbi as Abi;
 export const routerAbi = FeeRouterAbi as Abi;
 
-/** Canonical Arc addresses. See contracts/src/libraries/ArcChain.sol — keep the two in step. */
+/**
+ * Canonical Arc addresses. See contracts/src/libraries/ArcChain.sol — keep the two in step.
+ *
+ * `USDC`, `POOL_MANAGER`, `STATE_VIEW` and `QUOTER` carry identical bytecode on Arc mainnet (5042)
+ * and testnet (5042002), so one set of constants serves both. `POSITION_MANAGER` and
+ * `UNIVERSAL_ROUTER` are MAINNET ONLY — they have no code at these addresses on testnet. Nothing
+ * in this app calls them today; if that changes they must become per-chain lookups.
+ */
 export const ARC = {
-  /** 6-decimal ERC-20 interface to Arc's native USDC. */
+  /** 6-decimal ERC-20 interface to Arc's native USDC. Same on both networks. */
   USDC: "0x3600000000000000000000000000000000000000" as Address,
+  /** Same on both networks. */
   POOL_MANAGER: "0x8366a39CC670B4001A1121B8F6A443A643e40951" as Address,
-  POSITION_MANAGER: "0x6049c9a0e26405C0985f9E3685C87d0aE917f82B" as Address,
+  /** Same on both networks. */
   STATE_VIEW: "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b" as Address,
+  /** Mainnet only — absent on testnet. */
+  POSITION_MANAGER: "0x6049c9a0e26405C0985f9E3685C87d0aE917f82B" as Address,
+  /** Mainnet only — absent on testnet. */
   UNIVERSAL_ROUTER: "0x4fcA4a51Ab4F23A7447b3284fBd7D73289A89Fb1" as Address,
 } as const;
 
