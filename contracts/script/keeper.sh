@@ -118,13 +118,29 @@ send() { LAST_OUT=$(cast send --async "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
 call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
 
 round() {
-  local count vault warm pending
+  local count vault warm pending supply skipped
   count=$(call "$FACTORY" "vaultCount()(uint256)")
   [ -n "$count" ] || { echo "$(date -u +%T) cannot reach the factory"; return; }
+  skipped=0
 
   for ((i = 0; i < count; i++)); do
     vault=$(call "$FACTORY" "allVaults(uint256)(address)" "$i")
     [ -n "$vault" ] || continue
+
+    # Skip vaults nobody has staked in.
+    #
+    # Creating a vault is permissionless, so anyone may add one at any time and whoever runs this
+    # pays for it forever after. An empty vault has no fees to harvest and no depositor waiting on
+    # a price, so a warm oracle buys nothing — and without this the running cost is set by how many
+    # vaults strangers have created rather than by how much money the protocol actually holds.
+    #
+    # The moment somebody deposits, two-sided deposits work without any oracle at all, so the vault
+    # is picked up on the next cycle and warms from there.
+    supply=$(call "$vault" "totalSupply()(uint256)")
+    if [ "${supply:-0}" = "0" ]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
 
     if ! send "$vault" "poke()"; then
       # The reason matters: a bad password, an empty wallet and an RPC timeout all look the same
@@ -146,6 +162,12 @@ round() {
       echo "$(date -u +%T) $vault poked, still warming (deferred fees: ${pending:-0})"
     fi
   done
+
+  # Say so rather than going quiet: a keeper printing nothing looks broken, and "every vault is
+  # empty" is a fact worth seeing.
+  if [ "$skipped" -gt 0 ]; then
+    echo "$(date -u +%T) skipped $skipped empty vault(s) of $count — nothing staked, nothing to keep warm"
+  fi
 }
 
 echo "keeper: factory $FACTORY on $RPC, every ${INTERVAL}s"
