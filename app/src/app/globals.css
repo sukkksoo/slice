@@ -47,244 +47,422 @@
   --radius-panel: 16px;
 }
 
-html {
-  background: var(--color-bg);
-  color-scheme: dark;
-}
-
-:root {
-  --ui-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --ui-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
-
-  /* On dark, a drop shadow is invisible — the depth cue is an inset highlight along the top edge,
-     as if a light source sat above the page, plus a deeper ambient beneath. */
-  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px -12px rgba(0, 0, 0, 0.75);
-  --shadow-lg: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 28px 64px -20px rgba(0, 0, 0, 0.85);
-  --shadow-brand: 0 8px 28px -8px rgba(91, 140, 255, 0.55);
-}
-
-body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--ui-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
 /*
- * Ambient colour field. Large flat areas of periwinkle read as dead space, so three slow-drifting
- * blobs keep the canvas alive without ever sitting behind body text.
+ * Everything below is layered on purpose.
+ *
+ * Tailwind emits utilities inside `@layer utilities`, and an unlayered rule beats every
+ * layered one whatever the specificity. Written outside a layer, `.panel` therefore
+ * overrode `bg-[var(--color-warn-dim)]` on the same element — so every warning banner
+ * rendered as a neutral panel — and `body > *` overrode the header's `sticky z-50`, which
+ * dropped the connect menu underneath <main> where it could not be clicked.
+ *
+ * With base and components in layers, a utility on an element wins, which is what anyone
+ * reading the markup would expect.
  */
-body::before {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(42rem 30rem at 10% 0%, rgba(91, 140, 255, 0.20), transparent 60%),
-    radial-gradient(38rem 28rem at 92% 6%, rgba(139, 122, 255, 0.17), transparent 58%),
-    radial-gradient(34rem 26rem at 72% 46%, rgba(61, 219, 240, 0.10), transparent 60%),
-    radial-gradient(30rem 24rem at 24% 78%, rgba(91, 140, 255, 0.09), transparent 62%);
-  animation: sl-wash 30s ease-in-out infinite;
+@layer base {
+
+  html {
+    background: var(--color-bg);
+    color-scheme: dark;
+  }
+
+  :root {
+    --ui-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ui-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* On dark, a drop shadow is invisible — the depth cue is an inset highlight along the top edge,
+       as if a light source sat above the page, plus a deeper ambient beneath. */
+    --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px -12px rgba(0, 0, 0, 0.75);
+    --shadow-lg: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 28px 64px -20px rgba(0, 0, 0, 0.85);
+    --shadow-brand: 0 8px 28px -8px rgba(91, 140, 255, 0.55);
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--ui-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Ambient colour field. Large flat areas of periwinkle read as dead space, so three slow-drifting
+   * blobs keep the canvas alive without ever sitting behind body text.
+   */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(42rem 30rem at 10% 0%, rgba(91, 140, 255, 0.20), transparent 60%),
+      radial-gradient(38rem 28rem at 92% 6%, rgba(139, 122, 255, 0.17), transparent 58%),
+      radial-gradient(34rem 26rem at 72% 46%, rgba(61, 219, 240, 0.10), transparent 60%),
+      radial-gradient(30rem 24rem at 24% 78%, rgba(91, 140, 255, 0.09), transparent 62%);
+    animation: sl-wash 30s ease-in-out infinite;
+  }
+
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
+
 }
 
-body > * {
-  position: relative;
-  z-index: 1;
-}
+@layer components {
+  /* --- surfaces --- */
 
-/* --- surfaces --- */
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-sm);
+  }
 
-.panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-sm);
-}
+  .panel-raised {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-md);
+  }
 
-.panel-raised {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-md);
-}
+  /* Frosted, for things that float over the colour field. */
+  .glass {
+    background: rgba(16, 23, 49, 0.66);
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-lg);
+  }
 
-/* Frosted, for things that float over the colour field. */
-.glass {
-  background: rgba(16, 23, 49, 0.66);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-lg);
-}
+  /* A hairline gradient edge, for the one or two elements that should read as "brand". */
+  .brand-edge {
+    position: relative;
+  }
+  .brand-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--color-accent-bright), var(--color-violet), var(--color-cyan));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
 
-/* A hairline gradient edge, for the one or two elements that should read as "brand". */
-.brand-edge {
-  position: relative;
-}
-.brand-edge::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-violet), var(--color-cyan));
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
+  /* --- type --- */
 
-/* --- type --- */
+  .num {
+    font-family: var(--ui-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
 
-.num {
-  font-family: var(--ui-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
+  .mono {
+    font-family: var(--ui-mono);
+  }
 
-.mono {
-  font-family: var(--ui-mono);
-}
+  pre,
+  code {
+    font-family: var(--ui-mono);
+  }
 
-pre,
-code {
-  font-family: var(--ui-mono);
-}
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
 
-.label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--color-dim);
-}
+  .accent-text {
+    background: linear-gradient(115deg, var(--color-accent-deep), var(--color-violet) 55%, var(--color-cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 
-.accent-text {
-  background: linear-gradient(115deg, var(--color-accent-deep), var(--color-violet) 55%, var(--color-cyan));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+  .divide-row > * + * {
+    border-top: 1px solid var(--color-border);
+  }
 
-.divide-row > * + * {
-  border-top: 1px solid var(--color-border);
-}
+  /* --- interaction --- */
 
-/* --- interaction --- */
+  .row-hover {
+    transition: background-color 140ms ease;
+  }
+  .row-hover:hover {
+    background: var(--color-surface-2);
+  }
 
-.row-hover {
-  transition: background-color 140ms ease;
-}
-.row-hover:hover {
-  background: var(--color-surface-2);
-}
+  .lift {
+    transition:
+      transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 180ms ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
 
-.lift {
-  transition:
-    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 180ms ease;
-}
-.lift:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 11px;
+    font-weight: 600;
+    font-size: 13.5px;
+    padding: 0.62rem 1.05rem;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      opacity 140ms ease,
+      transform 80ms ease;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 11px;
-  font-weight: 600;
-  font-size: 13.5px;
-  padding: 0.62rem 1.05rem;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    opacity 140ms ease,
-    transform 80ms ease;
-}
-.btn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+  .btn-primary {
+    background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent) 60%, var(--color-violet));
+    color: #fff;
+    box-shadow: var(--shadow-brand);
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.06) saturate(1.05);
+    box-shadow: 0 8px 26px -6px rgba(59, 111, 240, 0.55);
+  }
 
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent) 60%, var(--color-violet));
-  color: #fff;
-  box-shadow: var(--shadow-brand);
-}
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.06) saturate(1.05);
-  box-shadow: 0 8px 26px -6px rgba(59, 111, 240, 0.55);
-}
+  .btn-ghost {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-surface-2);
+    border-color: var(--color-accent);
+    color: var(--color-accent-deep);
+  }
 
-.btn-ghost {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text);
-  box-shadow: var(--shadow-sm);
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--color-surface-2);
-  border-color: var(--color-accent);
-  color: var(--color-accent-deep);
-}
+  .input {
+    width: 100%;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 11px;
+    padding: 0.7rem 0.9rem;
+    font-size: 15px;
+    color: var(--color-text);
+    outline: none;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
+  }
+  .input:focus {
+    background: var(--color-surface);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(59, 111, 240, 0.14);
+  }
+  .input::placeholder {
+    color: var(--color-dim);
+  }
 
-.input {
-  width: 100%;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 11px;
-  padding: 0.7rem 0.9rem;
-  font-size: 15px;
-  color: var(--color-text);
-  outline: none;
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background-color 140ms ease;
-}
-.input:focus {
-  background: var(--color-surface);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(59, 111, 240, 0.14);
-}
-.input::placeholder {
-  color: var(--color-dim);
-}
+  /* --- loading --- */
 
-/* --- loading --- */
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-surface-3);
+    border-radius: 7px;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+
+  .live-dot {
+    animation: pulse-dot 2.2s ease-in-out infinite;
+  }
+
+  /* --- diagram motion --- */
+
+  .sl-flow {
+    animation: sl-flow 3.3s linear infinite;
+  }
+
+  .sl-drift {
+    animation: sl-drift 3.2s linear infinite;
+  }
+
+  .sl-pulse {
+    animation: sl-pulse 2.4s ease-in-out infinite;
+  }
+
+
+  .rise {
+    animation: sl-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+
+  /* Range inputs used by the yield calculator. Browsers give these a native look that ignores every
+     token in this file, so the track and thumb are drawn explicitly for both engines. */
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-surface-3);
+    outline: none;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    border: 3px solid var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    cursor: grab;
+  }
+  .slider::-webkit-slider-thumb:active {
+    cursor: grabbing;
+  }
+  .slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    border: 3px solid var(--color-surface);
+    cursor: grab;
+  }
+  .slider:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+  }
+
+  /* --- motion ---------------------------------------------------------------------------------
+   *
+   * Everything below is decorative, so all of it stops under prefers-reduced-motion at the end of
+   * this block. On a page about money, movement should draw the eye to something that is genuinely
+   * changing — a live price, a figure being counted — and never sit behind text.
+   */
+
+  /* Seamless horizontal scroll: the track holds two identical groups and travels exactly half its
+     width, so the reset lands on a pixel-identical frame. */
+  .marquee {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: sl-marquee linear infinite;
+  }
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+  .marquee-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* The dot at the live end of a sparkline. */
+  .spark-pulse {
+    transform-origin: center;
+    animation: sl-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* A slow sheen across a surface, for the one or two elements that should feel alive. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.07) 50%, transparent 62%);
+    transform: translateX(-100%);
+    animation: sl-sheen 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* A hairline that travels the top edge of a panel, marking it as live. */
+  .edge-run {
+    position: relative;
+  }
+  .edge-run::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 1px;
+    width: 38%;
+    background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-cyan), transparent);
+    animation: sl-edge 5.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* A gradient that drifts through the brand hues, for headline text. */
+  .grad-text {
+    background: linear-gradient(
+      100deg,
+      var(--color-accent-bright),
+      var(--color-violet),
+      var(--color-cyan),
+      var(--color-accent-bright)
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: sl-grad 9s ease infinite;
+  }
+
+  /* A slow vertical float, for anything meant to hover rather than sit. */
+  .float {
+    animation: sl-float 7s ease-in-out infinite;
+  }
+
+  /* A dark canvas makes a plain 1px border look painted on. A gradient edge that brightens on hover
+     gives a card somewhere to go without moving it. */
+  .lift {
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-lg);
+  }
+
+
+}
 
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
   }
-}
-
-.skeleton {
-  position: relative;
-  overflow: hidden;
-  background: var(--color-surface-3);
-  border-radius: 7px;
-}
-.skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
-  animation: shimmer 1.5s infinite;
 }
 
 @keyframes pulse-dot {
@@ -296,11 +474,6 @@ code {
     opacity: 0.5;
   }
 }
-.live-dot {
-  animation: pulse-dot 2.2s ease-in-out infinite;
-}
-
-/* --- diagram motion --- */
 
 @keyframes sl-flow {
   from {
@@ -309,9 +482,6 @@ code {
   to {
     stroke-dashoffset: 0;
   }
-}
-.sl-flow {
-  animation: sl-flow 3.3s linear infinite;
 }
 
 @keyframes sl-drift {
@@ -330,9 +500,6 @@ code {
     opacity: 0;
   }
 }
-.sl-drift {
-  animation: sl-drift 3.2s linear infinite;
-}
 
 @keyframes sl-pulse {
   0%,
@@ -344,9 +511,6 @@ code {
     opacity: 1;
     r: 11.5;
   }
-}
-.sl-pulse {
-  animation: sl-pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes sl-wash {
@@ -368,9 +532,6 @@ code {
     opacity: 1;
     transform: translateY(0);
   }
-}
-.rise {
-  animation: sl-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -412,162 +573,35 @@ code {
   }
 }
 
-/* Range inputs used by the yield calculator. Browsers give these a native look that ignores every
-   token in this file, so the track and thumb are drawn explicitly for both engines. */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--color-surface-3);
-  outline: none;
-}
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  border: 3px solid var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  cursor: grab;
-}
-.slider::-webkit-slider-thumb:active {
-  cursor: grabbing;
-}
-.slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  border: 3px solid var(--color-surface);
-  cursor: grab;
-}
-.slider:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-accent-dim);
-}
-
-/* --- motion ---------------------------------------------------------------------------------
- *
- * Everything below is decorative, so all of it stops under prefers-reduced-motion at the end of
- * this block. On a page about money, movement should draw the eye to something that is genuinely
- * changing — a live price, a figure being counted — and never sit behind text.
- */
-
-/* Seamless horizontal scroll: the track holds two identical groups and travels exactly half its
-   width, so the reset lands on a pixel-identical frame. */
-.marquee {
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-.marquee-track {
-  display: flex;
-  width: max-content;
-  animation: sl-marquee linear infinite;
-}
-.marquee:hover .marquee-track {
-  animation-play-state: paused;
-}
-.marquee-group {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
 @keyframes sl-marquee {
   from { transform: translate3d(0, 0, 0); }
   to   { transform: translate3d(-50%, 0, 0); }
 }
 
-/* The dot at the live end of a sparkline. */
-.spark-pulse {
-  transform-origin: center;
-  animation: sl-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
 @keyframes sl-ping {
   0%        { transform: scale(1); opacity: 0.6; }
   70%, 100% { transform: scale(3.2); opacity: 0; }
 }
 
-/* A slow sheen across a surface, for the one or two elements that should feel alive. */
-.sheen {
-  position: relative;
-  overflow: hidden;
-}
-.sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.07) 50%, transparent 62%);
-  transform: translateX(-100%);
-  animation: sl-sheen 7s ease-in-out infinite;
-  pointer-events: none;
-}
 @keyframes sl-sheen {
   0%, 62% { transform: translateX(-100%); }
   100%    { transform: translateX(100%); }
 }
 
-/* A hairline that travels the top edge of a panel, marking it as live. */
-.edge-run {
-  position: relative;
-}
-.edge-run::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 1px;
-  width: 38%;
-  background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-cyan), transparent);
-  animation: sl-edge 5.5s ease-in-out infinite;
-  pointer-events: none;
-}
 @keyframes sl-edge {
   0%, 100% { transform: translateX(-30%); opacity: 0; }
   12%, 88% { opacity: 1; }
   50%      { transform: translateX(200%); }
 }
 
-/* A gradient that drifts through the brand hues, for headline text. */
-.grad-text {
-  background: linear-gradient(
-    100deg,
-    var(--color-accent-bright),
-    var(--color-violet),
-    var(--color-cyan),
-    var(--color-accent-bright)
-  );
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: sl-grad 9s ease infinite;
-}
 @keyframes sl-grad {
   0%, 100% { background-position: 0% 50%; }
   50%      { background-position: 100% 50%; }
 }
 
-/* A slow vertical float, for anything meant to hover rather than sit. */
-.float {
-  animation: sl-float 7s ease-in-out infinite;
-}
 @keyframes sl-float {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-7px); }
-}
-
-/* A dark canvas makes a plain 1px border look painted on. A gradient edge that brightens on hover
-   gives a card somewhere to go without moving it. */
-.lift {
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
-}
-.lift:hover {
-  transform: translateY(-3px);
-  border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-lg);
 }
 
 @media (prefers-reduced-motion: reduce) {

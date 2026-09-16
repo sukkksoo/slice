@@ -21,7 +21,7 @@ export function Nav() {
   // `chainId` is the wallet's real chain, unsupported ones included. useChainId() would report the
   // config's chain instead, so a wallet parked on Ethereum would read as "on Arc" through it.
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { connect, connectors, isPending, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
 
@@ -114,20 +114,29 @@ export function Nav() {
                 {isPending ? "Connecting…" : <ConnectLabel />}
               </button>
               {pickerOpen && (
-                <div className="panel-raised absolute right-0 top-[calc(100%+6px)] w-52 overflow-hidden p-1">
+                <div className="panel-raised absolute right-0 top-[calc(100%+6px)] z-10 w-60 overflow-hidden p-1">
                   {connectors.map((c) => (
                     <button
                       key={c.uid}
                       type="button"
-                      onClick={() => {
-                        setPickerOpen(false);
-                        connect({ connector: c });
-                      }}
+                      onClick={() =>
+                        connect(
+                          { connector: c },
+                          { onSuccess: () => setPickerOpen(false) },
+                        )
+                      }
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-[var(--color-surface-2)]"
                     >
                       {c.name}
                     </button>
                   ))}
+                  {connectError && (
+                    <p className="border-t border-[var(--color-border)] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-down)]">
+                      {/^User rejected|denied/i.test(connectError.message)
+                        ? "You dismissed the request in your wallet."
+                        : connectError.message.split("\n")[0].slice(0, 120)}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
