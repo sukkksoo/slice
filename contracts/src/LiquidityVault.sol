@@ -347,10 +347,14 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         if (shares < minShares) revert SlippageExceeded();
 
         if (amount0Max > used0) {
-            IERC20(Currency.unwrap(currency0)).safeTransfer(msg.sender, amount0Max - used0);
+            uint256 back0 = amount0Max - used0;
+            back0 += _refundDepositFee(back0, true);
+            IERC20(Currency.unwrap(currency0)).safeTransfer(msg.sender, back0);
         }
         if (amount1Max > used1) {
-            IERC20(Currency.unwrap(currency1)).safeTransfer(msg.sender, amount1Max - used1);
+            uint256 back1 = amount1Max - used1;
+            back1 += _refundDepositFee(back1, false);
+            IERC20(Currency.unwrap(currency1)).safeTransfer(msg.sender, back1);
         }
 
         emit Deposited(msg.sender, to, liquidityAdded, shares);
@@ -383,7 +387,9 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         if (shares < minShares) revert SlippageExceeded();
 
         if (usdcAmount > usdcUsed) {
-            IERC20(Currency.unwrap(rewardCurrency)).safeTransfer(msg.sender, usdcAmount - usdcUsed);
+            uint256 back = usdcAmount - usdcUsed;
+            back += _refundDepositFee(back, usdcIsCurrency0);
+            IERC20(Currency.unwrap(rewardCurrency)).safeTransfer(msg.sender, back);
         }
         if (assetRefund > 0) {
             IERC20(Currency.unwrap(assetCurrency)).safeTransfer(msg.sender, assetRefund);
@@ -778,6 +784,32 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
 
         emit DepositFeeCharged(msg.sender, fee0, fee1);
         return (amount0 - fee0, amount1 - fee1);
+    }
+
+    /// @notice Give back the entry fee that was charged on a portion now being refunded.
+    ///
+    /// @dev `deposit` takes *maximum* amounts and hands back whatever the position could not
+    ///      absorb at the pool's current ratio, so supplying generously on one side is the normal
+    ///      way to use it. The fee therefore has to follow the money: capital that never reached
+    ///      the pool was never deployed, and charging for it turns a 0.5% fee into an arbitrarily
+    ///      large one on a lopsided deposit.
+    ///
+    /// @dev `leftoverNet` is already net of the fee, so the gross it was taken from is
+    ///      `leftoverNet * BPS / (BPS - bps)` and the fee on it is the difference, which reduces
+    ///      to `leftoverNet * bps / (BPS - bps)`. Integer division rounds the refund down, leaving
+    ///      at most a wei with the protocol rather than overpaying it out.
+    function _refundDepositFee(uint256 leftoverNet, bool isCurrency0) internal returns (uint256 feeBack) {
+        uint16 bps = depositFeeBps;
+        if (bps == 0 || leftoverNet == 0) return 0;
+
+        feeBack = (leftoverNet * bps) / (BPS - bps);
+        if (isCurrency0) {
+            if (feeBack > pendingDepositFees0) feeBack = pendingDepositFees0;
+            pendingDepositFees0 -= feeBack;
+        } else {
+            if (feeBack > pendingDepositFees1) feeBack = pendingDepositFees1;
+            pendingDepositFees1 -= feeBack;
+        }
     }
 
     /// @notice Send accrued entry fees to the fee recipient.

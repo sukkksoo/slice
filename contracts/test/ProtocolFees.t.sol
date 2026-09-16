@@ -192,23 +192,34 @@ contract ProtocolFeesTest is Test {
     // --- entry fee ---
 
     /// @notice The entry fee is a haircut on principal, taken before anything is deployed.
-    function test_entryFeeIsChargedOnPrincipal() public {
+    /// @notice The entry fee is 0.5% of the capital the vault actually deploys.
+    ///
+    /// @dev Deliberately measured against what the depositor parted with rather than what they
+    ///      offered. `deposit` takes maximum amounts and refunds the remainder, so asserting the
+    ///      fee against the gross pull would pin the bug where a lopsided deposit is charged for
+    ///      money handed straight back — see `EntryFeeRefund.t.sol`.
+    function test_entryFeeIsChargedOnDeployedPrincipal() public {
         uint16 bps = vault.depositFeeBps();
         assertEq(bps, 50, "expected a 0.5% default entry fee");
 
-        uint256 usdcIn = 10_000e6;
-        uint256 tokenIn = 10_000e18;
-        uint256 expected0 = (usdcIn * bps) / 10_000;
-        uint256 expected1 = (tokenIn * bps) / 10_000;
-
+        uint256 usdcBefore = usdc.balanceOf(alice);
+        uint256 tokenBefore = token.balanceOf(alice);
         uint256 before0 = vault.pendingDepositFees0();
         uint256 before1 = vault.pendingDepositFees1();
 
         vm.prank(alice);
-        vault.deposit(usdcIn, tokenIn, 0, alice);
+        vault.deposit(10_000e6, 10_000e18, 0, alice);
 
-        assertEq(vault.pendingDepositFees0() - before0, expected0, "usdc fee not accrued");
-        assertEq(vault.pendingDepositFees1() - before1, expected1, "token fee not accrued");
+        uint256 usdcParted = usdcBefore - usdc.balanceOf(alice);
+        uint256 tokenParted = tokenBefore - token.balanceOf(alice);
+        uint256 fee0 = vault.pendingDepositFees0() - before0;
+        uint256 fee1 = vault.pendingDepositFees1() - before1;
+
+        assertGt(fee0, 0, "no usdc fee accrued");
+        assertGt(fee1, 0, "no token fee accrued");
+        // Exact to the wei the rounding can leave behind, on both sides.
+        assertApproxEqAbs(fee0, (usdcParted * bps) / 10_000, 1, "usdc fee is not 0.5% of what was deployed");
+        assertApproxEqAbs(fee1, (tokenParted * bps) / 10_000, 1, "token fee is not 0.5% of what was deployed");
     }
 
     /// @notice Two depositors of the same size get the same shares — the fee is proportional.

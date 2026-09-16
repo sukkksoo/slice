@@ -23,6 +23,13 @@ export default function Fees() {
         against the net amount, so the position you hold reflects what actually went in.
       </P>
       <P>
+        It is charged only on capital the vault actually deploys. Deposits take{" "}
+        <Strong>maximum</Strong> amounts and hand back whatever the position could not absorb at the
+        pool&apos;s current ratio, so supplying generously on one side is the normal way to use
+        them — and the fee on anything refunded is refunded with it. You are never charged for
+        money that never left your control.
+      </P>
+      <P>
         This is a <Strong>haircut on principal</Strong>, which makes it the most expensive kind of
         fee to charge: it costs you whether or not the position ever earns, and it has to be won
         back before you are level. That is exactly why it is kept small — 0.5% is roughly two
@@ -41,6 +48,10 @@ export default function Fees() {
         <LI>
           Accrued rather than pushed, and collected separately with{" "}
           <Code>collectDepositFees()</Code>. That is a safety property, not a courtesy — see below.
+        </LI>
+        <LI>
+          Fuzzed at 100,000 runs against the property that it never exceeds the stated rate on what
+          a depositor actually parted with, at any deposit ratio.
         </LI>
       </UL>
 
