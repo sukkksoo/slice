@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useSwitchChain } from "wagmi";
 
 import { Logo } from "@/components/Brand";
 import { targetChain } from "@/lib/chain";
-import { shortAddress } from "@/lib/format";
+import { AccountMenu } from "@/components/AccountMenu";
 
 const TABS = [
   { href: "/pools", label: "Pools" },
@@ -22,7 +22,6 @@ export function Nav() {
   // config's chain instead, so a wallet parked on Ethereum would read as "on Arc" through it.
   const { address, isConnected, chainId } = useAccount();
   const { connect, connectors, isPending, error: connectError } = useConnect();
-  const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
 
   const wrongChain = isConnected && chainId !== targetChain.id;
@@ -90,10 +89,7 @@ export function Nav() {
           )}
 
           {isConnected ? (
-            <button type="button" onClick={() => disconnect()} className="btn btn-ghost">
-              <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
-              <span className="mono text-xs">{address ? shortAddress(address) : "Connected"}</span>
-            </button>
+            <AccountMenu />
           ) : connectors.length === 1 ? (
             <button
               type="button"

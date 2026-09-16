@@ -1,20 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAddress, zeroAddress, type Address } from "viem";
-import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
+import { Action, TxStatus, useNetworkGuard } from "@/components/tx";
 import { Badge, TokenAvatar } from "@/components/ui";
 import { targetChain } from "@/lib/chain";
 import { ARC, erc20Abi, factoryAbi, FACTORY_ADDRESS, onArc } from "@/lib/contracts";
-import {
-  FEE_TIERS,
-  poolId,
-  stateViewAbi,
-  usdcPoolKey,
-  validatePool,
-} from "@/lib/pool";
+import { poolId, stateViewAbi, unsafeHookPermissions, usdcPoolKey } from "@/lib/pool";
+
+/** A pool as the lookup reports it. */
+type FoundPool = {
+  poolId: string;
+  currency0: string;
+  currency1: string;
+  fee: number;
+  tickSpacing: number;
+  hooks: string;
+  liquidity: string;
+  usdcQuoted: boolean;
+  exitSafe: boolean;
+  usable: boolean;
+};
 
 /**
  * List any USDC-quoted Uniswap v4 pool.
@@ -22,114 +31,119 @@ import {
  * `createVault` carries no access control, so this is not an admin screen — anyone can add a pool
  * and anyone can then stake in it. The page exists because a permissionless protocol behind a
  * curated-looking dashboard is indistinguishable from a permissioned one.
+ *
+ * It asks for a token address and nothing else. Asking for the hook and a fee tier chosen from
+ * four presets failed twice over: the hook is only discoverable by reading an event log, and real
+ * pools use fees well outside the common four — a live token whose pool charged 33% could not be
+ * expressed in the form at all, so it looked unlistable.
  */
 export default function NewPoolPage() {
-  const { address: account } = useAccount();
+  const guard = useNetworkGuard();
+  const account = guard.account;
+
   const [token, setToken] = useState("");
-  const [hooks, setHooks] = useState(zeroAddress as string);
-  const [tier, setTier] = useState(3);
-
-  const { fee, tickSpacing } = FEE_TIERS[tier];
-
-  // Look the pool up from its Initialize event as soon as a token address is entered.
-  //
-  // A pool key includes the hook, launchpads deploy a different one per pool, and getting it wrong
-  // produces a different pool id and the unhelpful "no pool exists at this combination". Nobody
-  // can be expected to find that address by reading event logs, so the app reads them instead.
-  const [lookup, setLookup] = useState<
-    { state: "idle" | "searching" | "found" | "none" | "error"; message?: string }
-  >({ state: "idle" });
-  const lookedUp = useRef<string>("");
+  const [pools, setPools] = useState<FoundPool[]>([]);
+  const [chosen, setChosen] = useState(0);
+  const [lookup, setLookup] = useState<"idle" | "searching" | "done" | "error">("idle");
+  const [lookupNote, setLookupNote] = useState("");
+  const lastLookedUp = useRef("");
 
   useEffect(() => {
     const t = token.trim().toLowerCase();
-    if (!isAddress(t) || lookedUp.current === t) return;
-    lookedUp.current = t;
+    if (!isAddress(t)) {
+      setPools([]);
+      setLookup("idle");
+      lastLookedUp.current = "";
+      return;
+    }
+    if (lastLookedUp.current === t) return;
+    lastLookedUp.current = t;
 
     let cancelled = false;
-    setLookup({ state: "searching" });
+    setLookup("searching");
+    setLookupNote("");
+    setPools([]);
 
     fetch(`/api/pool-lookup?token=${t}&chain=${targetChain.id}`)
       .then((r) => r.json())
-      .then((d: { pools?: { fee: number; tickSpacing: number; hooks: string }[]; error?: string }) => {
+      .then((d: { pools?: FoundPool[]; error?: string; reason?: string }) => {
         if (cancelled) return;
-        if (d.error) return setLookup({ state: "error", message: d.error });
-        const found = d.pools?.[d.pools.length - 1];
-        if (!found) return setLookup({ state: "none" });
-
-        setHooks(found.hooks);
-        const idx = FEE_TIERS.findIndex(
-          (f) => f.fee === found.fee && f.tickSpacing === found.tickSpacing,
-        );
-        if (idx >= 0) setTier(idx);
-        setLookup({
-          state: "found",
-          message:
-            idx >= 0
-              ? undefined
-              : `This pool uses fee ${found.fee} and tick spacing ${found.tickSpacing}, which is not one of the presets.`,
-        });
+        if (d.error) {
+          setLookupNote(d.error);
+          setLookup("error");
+          return;
+        }
+        setPools(d.pools ?? []);
+        setChosen(0);
+        setLookupNote(d.reason ?? "");
+        setLookup("done");
       })
-      .catch(() => !cancelled && setLookup({ state: "error", message: "lookup failed" }));
+      .catch(() => {
+        if (!cancelled) {
+          setLookupNote("could not reach the lookup");
+          setLookup("error");
+        }
+      });
 
     return () => {
       cancelled = true;
     };
   }, [token]);
-  const problems = useMemo(
-    () => (token || hooks ? validatePool(token, hooks) : []),
-    [token, hooks],
-  );
 
-  const inputsUsable = isAddress(token) && isAddress(hooks) && problems.length === 0;
+  const selected = pools[chosen];
+
+  // The key comes from the pool as it exists on chain, not from a preset. Uniswap v4 permits any
+  // fee and tick spacing, and pools in the wild use values far outside the usual four.
   const key = useMemo(
     () =>
-      inputsUsable ? usdcPoolKey(token as Address, fee, tickSpacing, hooks as Address) : null,
-    [inputsUsable, token, fee, tickSpacing, hooks],
+      selected && isAddress(token)
+        ? usdcPoolKey(token as Address, selected.fee, selected.tickSpacing, selected.hooks as Address)
+        : null,
+    [selected, token],
   );
   const id = key ? poolId(key) : null;
 
   const reads = useReadContracts({
-    contracts: onArc(id
-      ? [
-          { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getSlot0", args: [id] },
-          { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getLiquidity", args: [id] },
-          { address: token as Address, abi: erc20Abi, functionName: "symbol" },
-          FACTORY_ADDRESS
-            ? {
-                address: FACTORY_ADDRESS as Address,
-                abi: factoryAbi,
-                functionName: "vaultForPool",
-                args: [id],
-              }
-            : { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getLiquidity", args: [id] },
-        ]
-      : []),
-    query: { enabled: Boolean(id) },
+    contracts: onArc(
+      id && FACTORY_ADDRESS
+        ? [
+            { address: ARC.STATE_VIEW, abi: stateViewAbi, functionName: "getSlot0", args: [id] },
+            { address: token as Address, abi: erc20Abi, functionName: "symbol" },
+            {
+              address: FACTORY_ADDRESS as Address,
+              abi: factoryAbi,
+              functionName: "vaultForPool",
+              args: [id],
+            },
+          ]
+        : [],
+    ),
+    query: { enabled: Boolean(id && FACTORY_ADDRESS) },
   });
 
   const d = reads.data;
   const slot0 = d?.[0]?.status === "success" ? (d[0].result as [bigint, number, number, number]) : null;
-  const liquidity = d?.[1]?.status === "success" ? (d[1].result as bigint) : 0n;
-  const symbol = d?.[2]?.status === "success" ? (d[2].result as string) : null;
-  const existing = d?.[3]?.status === "success" ? (d[3].result as Address) : zeroAddress;
+  const symbol = d?.[1]?.status === "success" ? (d[1].result as string) : null;
+  const existing = d?.[2]?.status === "success" ? (d[2].result as Address) : zeroAddress;
 
   const initialized = Boolean(slot0 && slot0[0] > 0n);
   const alreadyListed = existing !== zeroAddress && isAddress(existing);
-  const canCreate = Boolean(id) && initialized && !alreadyListed && Boolean(account);
+  const canCreate =
+    Boolean(id) && initialized && !alreadyListed && Boolean(account) && Boolean(selected?.usable);
 
-  const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
+  const { writeContract, data: txHash, isPending, error: writeError, reset } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: txHash });
 
-  const create = () => {
+  const create = useCallback(() => {
     if (!key || !FACTORY_ADDRESS) return;
+    reset();
     writeContract({
       address: FACTORY_ADDRESS as Address,
       abi: factoryAbi,
       functionName: "createVault",
       args: [key],
     });
-  };
+  }, [key, writeContract, reset]);
 
   return (
     <div className="space-y-8">
@@ -138,8 +152,8 @@ export default function NewPoolPage() {
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">List a pool</h1>
         <p className="mt-3 max-w-2xl text-[var(--color-muted)]">
           Anyone can create a vault for any USDC-quoted Uniswap v4 pool on Arc, and anyone can then
-          stake in it. There is no allowlist and no approval step — the pool either meets the
-          vault&apos;s requirements or it does not.{" "}
+          stake in it. There is no allowlist and no approval step — paste a token address and its
+          pool is found for you.{" "}
           <Link href="/docs/contracts#compatibility" className="text-[var(--color-accent)] underline">
             What qualifies
           </Link>
@@ -148,84 +162,96 @@ export default function NewPoolPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <div className="panel space-y-5 p-6">
-          <CardHeading title="Pool" subtitle="The USDC side is filled in for you." />
+          <div>
+            <h2 className="text-base font-semibold tracking-[-0.01em]">Token</h2>
+            <p className="mt-1 text-[13px] text-[var(--color-muted)]">
+              The non-USDC side of the pair. Everything else is read from the chain.
+            </p>
+          </div>
 
-          <Field label="Token address" hint="The non-USDC side of the pair.">
+          <div>
+            <div className="label">Token address</div>
             <input
-              className="input mono"
+              className="input mono mt-1.5"
               placeholder="0x…"
               value={token}
               onChange={(e) => setToken(e.target.value.trim())}
               spellCheck={false}
             />
-          </Field>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-dim)]">
+              {lookup === "searching"
+                ? "Looking up this token's pools on Arc…"
+                : lookup === "error"
+                  ? `Lookup failed: ${lookupNote}`
+                  : lookup === "done" && pools.length === 0
+                    ? lookupNote || "No Uniswap v4 pool found for this token."
+                    : lookup === "done"
+                      ? `Found ${pools.length} pool${pools.length === 1 ? "" : "s"}. The one holding the most liquidity is selected.`
+                      : "Paste an address and its pool is found automatically."}
+            </p>
+          </div>
 
-          <Field
-            label="Hook address"
-            hint={
-              lookup.state === "searching"
-                ? "Looking up this token's pool on Arc…"
-                : lookup.state === "found"
-                  ? "Filled in from the pool's Initialize event on chain."
-                  : lookup.state === "none"
-                    ? "No pool found for this token in recent history — enter the hook manually, or leave the zero address for a plain pool."
-                    : "Filled in automatically once a token address is entered. Launchpads deploy one hook per pool; the zero address means a plain pool with none."
-            }
-          >
-            <input
-              className="input mono"
-              placeholder="0x0000000000000000000000000000000000000000"
-              value={hooks}
-              onChange={(e) => setHooks(e.target.value.trim())}
-              spellCheck={false}
-            />
-          </Field>
-
-          <Field
-            label="Fee tier"
-            hint={
-              lookup.state === "found" && !lookup.message
-                ? "Matched to the live pool automatically."
-                : lookup.message ?? "Must match the pool exactly, along with its tick spacing."
-            }
-          >
-            <div className="grid grid-cols-2 gap-2">
-              {FEE_TIERS.map((t, i) => (
-                <button
-                  key={t.fee}
-                  onClick={() => setTier(i)}
-                  className={`rounded-lg border px-3 py-2 text-left text-[13px] transition ${
-                    i === tier
-                      ? "border-[var(--color-accent)] bg-[var(--color-accent-dim)] text-[var(--color-accent-deep)]"
-                      : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-dim)]"
-                  }`}
-                >
-                  <span className="mono font-semibold">{t.label}</span>
-                  <span className="mt-0.5 block text-[11px] text-[var(--color-dim)]">
-                    spacing {t.tickSpacing}
-                  </span>
-                </button>
-              ))}
+          {pools.length > 0 && (
+            <div>
+              <div className="label mb-2">
+                {pools.length === 1 ? "Its pool" : `Pools for this token (${pools.length})`}
+              </div>
+              <div className="space-y-2">
+                {pools.map((p, i) => (
+                  <button
+                    key={p.poolId}
+                    type="button"
+                    onClick={() => setChosen(i)}
+                    disabled={!p.usable}
+                    className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                      i === chosen
+                        ? "border-[var(--color-accent)] bg-[var(--color-accent-dim)]"
+                        : p.usable
+                          ? "border-[var(--color-border)] hover:border-[var(--color-border-strong)]"
+                          : "border-[var(--color-border)] opacity-45"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="mono text-[13px] font-semibold">
+                        {(p.fee / 10_000).toFixed(2)}% fee
+                        <span className="ml-2 font-normal text-[var(--color-dim)]">
+                          spacing {p.tickSpacing}
+                        </span>
+                      </span>
+                      <Badge tone={BigInt(p.liquidity) > 0n ? "up" : "neutral"}>
+                        {BigInt(p.liquidity) > 0n ? "has liquidity" : "empty"}
+                      </Badge>
+                    </div>
+                    <div className="mono mt-1 truncate text-[11px] text-[var(--color-dim)]">
+                      hook {p.hooks === zeroAddress ? "none" : p.hooks}
+                    </div>
+                    {!p.usable && (
+                      <div className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-warn)]">
+                        {!p.usdcQuoted
+                          ? "Not quoted in USDC — rewards are paid in USDC, so it has to be one side of the pair."
+                          : `The hook ${unsafeHookPermissions(p.hooks as Address).join(", ")}, so the vault refuses this pool.`}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </Field>
+          )}
         </div>
 
         <div className="panel space-y-4 p-6">
-          <CardHeading title="Check" subtitle="Runs before you spend gas on a transaction." />
-
-          {problems.map((p) => (
-            <Row key={p.code} tone="bad" title={p.code}>
-              {p.detail}
-            </Row>
-          ))}
-
-          {!token && problems.length === 0 && (
-            <p className="text-[13px] text-[var(--color-muted)]">
-              Enter a token address to check a pool.
+          <div>
+            <h2 className="text-base font-semibold tracking-[-0.01em]">Check</h2>
+            <p className="mt-1 text-[13px] text-[var(--color-muted)]">
+              Runs before you spend gas on a transaction.
             </p>
-          )}
+          </div>
 
-          {id && (
+          {!selected ? (
+            <p className="text-[13px] text-[var(--color-muted)]">
+              Enter a token address to check its pool.
+            </p>
+          ) : (
             <>
               <div className="rounded-lg bg-[var(--color-surface-2)] p-3">
                 <div className="label">Pool id</div>
@@ -236,9 +262,8 @@ export default function NewPoolPage() {
                 <p className="text-[13px] text-[var(--color-muted)]">Reading the pool…</p>
               ) : !initialized ? (
                 <Row tone="bad" title="PoolNotInitialized">
-                  No pool exists at this combination on {targetChain.name}. The token, fee tier, tick
-                  spacing and hook must all match an existing pool exactly — one wrong field produces
-                  a different pool id.
+                  The chain reports no pool at this id, which should not happen for one found in an
+                  Initialize event. Try another pool from the list.
                 </Row>
               ) : alreadyListed ? (
                 <Row tone="good" title="Already listed">
@@ -254,89 +279,63 @@ export default function NewPoolPage() {
                     {symbol ? (
                       <span className="inline-flex items-center gap-2">
                         <TokenAvatar address={token} symbol={symbol} size={18} />
-                        <span className="mono">{symbol}</span> / USDC, initialised and holding
-                        liquidity.
+                        <span className="mono">{symbol}</span> / USDC at{" "}
+                        {(selected.fee / 10_000).toFixed(2)}%
                       </span>
                     ) : (
-                      <>Initialised and holding liquidity.</>
+                      <>Initialised on {targetChain.name}.</>
                     )}
                   </Row>
                   <Row tone="good" title="Hook is exit-safe">
-                    Carries no remove-liquidity permission and cannot return a delta on add or
-                    remove, so it can never block or skim a withdrawal.
+                    {selected.hooks === zeroAddress
+                      ? "This pool has no hook at all, so nothing can interfere with a withdrawal."
+                      : "Carries no remove-liquidity permission and cannot return a delta on add or remove, so it can never block or skim a withdrawal."}
                   </Row>
-                  {liquidity === 0n && (
+                  {BigInt(selected.liquidity) === 0n && (
                     <Row tone="warn" title="Pool has no liquidity">
-                      A vault can still be created, but it will have nothing to earn from until
-                      somebody provides liquidity to the pool itself.
+                      A vault can still be created, but it earns nothing until somebody provides
+                      liquidity to the pool itself.
                     </Row>
                   )}
                 </>
               )}
+
+              {receipt.isSuccess ? (
+                <Row tone="good" title="Vault created">
+                  It is live and stakeable now.{" "}
+                  <Link href="/pools" className="underline">
+                    See it in the pool list
+                  </Link>
+                  . Two-sided deposits work immediately; USDC-only follows in about half an hour,
+                  once the vault&apos;s price average spans its window.
+                </Row>
+              ) : (
+                <Action
+                  guard={guard}
+                  busy={isPending || receipt.isLoading}
+                  disabled={!canCreate}
+                  onClick={create}
+                  label={account ? "Create vault" : "Connect a wallet to list"}
+                />
+              )}
+
+              <TxStatus
+                hash={txHash}
+                isPending={isPending}
+                isConfirming={receipt.isLoading}
+                isSuccess={false}
+                error={writeError}
+              />
+
+              <p className="text-[12px] leading-relaxed text-[var(--color-dim)]">
+                Creating a vault costs gas and nothing else. It gives you no special rights over the
+                vault — the owner and fee recipient are set by the factory, identically for every
+                pool.
+              </p>
             </>
           )}
-
-          {receipt.isSuccess ? (
-            <Row tone="good" title="Vault created">
-              It is live and stakeable now.{" "}
-              <Link href="/pools" className="underline">
-                See it in the pool list
-              </Link>
-              . Two-sided deposits work immediately. USDC-only deposits need the vault&apos;s
-              thirty-minute price average, which starts building from the first observation — so
-              expect that button in about half an hour, with nothing to do in the meantime.
-            </Row>
-          ) : (
-            <button className="btn btn-primary w-full" disabled={!canCreate || isPending || receipt.isLoading} onClick={create}>
-              {!account
-                ? "Connect a wallet to list"
-                : isPending || receipt.isLoading
-                  ? "Creating…"
-                  : "Create vault"}
-            </button>
-          )}
-
-          {writeError && (
-            <p className="text-[12px] text-[var(--color-down)]">
-              {writeError.message.split("\n")[0]}
-            </p>
-          )}
-
-          <p className="text-[12px] leading-relaxed text-[var(--color-dim)]">
-            Creating a vault costs gas and nothing else. It gives you no special rights over the
-            vault — the owner and fee recipient are set by the factory, identically for every pool.
-            The pool is stakeable the moment it exists; single-sided deposits follow about thirty
-            minutes later, once its price average spans the window the vault will trade inside.
-          </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function CardHeading({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div>
-      <h2 className="text-base font-semibold tracking-[-0.01em]">{title}</h2>
-      <p className="mt-1 text-[13px] text-[var(--color-muted)]">{subtitle}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="mt-1.5">{children}</div>
-      <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-dim)]">{hint}</p>
     </div>
   );
 }
@@ -353,8 +352,6 @@ function Row({
   // Badge speaks in up/down/warn; this page speaks in pass/fail. Map rather than widen Badge,
   // which is used for market figures elsewhere and should not grow a second vocabulary.
   const badgeTone = ({ good: "up", warn: "warn", bad: "down" } as const)[tone];
-  // items-start, or the badge stretches to the height of the paragraph beside it: flex children
-  // default to `stretch`, which turns a pill into a tall lozenge next to two lines of text.
   return (
     <div className="flex items-start gap-3">
       <span className="shrink-0 whitespace-nowrap">
