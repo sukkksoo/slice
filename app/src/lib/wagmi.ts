@@ -23,9 +23,18 @@ const chains =
  */
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+/**
+ * What a wallet shows while asking someone to approve a connection: the site's name, its URL and
+ * its icon. Wallets fetch the icon themselves, so it has to be a real absolute URL — an empty
+ * `icons` array leaves a blank square, and a placeholder domain leaves a broken image, both of
+ * which read as "something is wrong with this site" at precisely the wrong moment.
+ */
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://delta-arc-sukiransandu-9022s-projects.vercel.app";
+const ICON = `${SITE}/icon.png`;
+
 const connectors: CreateConnectorFn[] = [
   injected(),
-  coinbaseWallet({ appName: "Slice", appLogoUrl: "https://slice.link/icon.png" }),
+  coinbaseWallet({ appName: "Slice", appLogoUrl: ICON }),
 ];
 
 if (projectId) {
@@ -36,8 +45,8 @@ if (projectId) {
       metadata: {
         name: "Slice",
         description: "Liquidity infrastructure for Arc — stake LP, earn streamed USDC fees.",
-        url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://slice.link",
-        icons: [],
+        url: SITE,
+        icons: [ICON],
       },
     }),
   );

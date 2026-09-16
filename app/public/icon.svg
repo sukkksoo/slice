@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Slice">
+  <!--
+    The app icon wallets show when asking someone to connect.
+
+    Kept as a standalone file rather than built from the React Logo component: a wallet fetches
+    this over the network from its own context, where the app's CSS variables and Tailwind classes
+    do not exist, so every colour is written out literally.
+  -->
+  <defs>
+    <linearGradient id="slice-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7aa5ff" />
+      <stop offset="55%" stop-color="#5b8cff" />
+      <stop offset="100%" stop-color="#8b7aff" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="128" fill="url(#slice-bg)" />
+
+  <!-- the flow: two currents crossing the mark -->
+  <g stroke="#ffffff" stroke-linecap="round" fill="none">
+    <path d="M139 202 H373" stroke-width="30" opacity="0.5" />
+    <path d="M139 310 H373" stroke-width="30" opacity="0.5" />
+    <!-- the cut through them -->
+    <path d="M309 128 L203 384" stroke-width="36" />
+  </g>
+</svg>
