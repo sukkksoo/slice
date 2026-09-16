@@ -20,11 +20,17 @@
 #
 #   15s, 30s  ring spans under 30 minutes -> tryConsult never returns a price. The oracle
 #             stays cold forever, however long the keeper runs. Poking harder makes it worse.
-#   60s       31-minute window. Warm, with a minute of margin.
-#   90s       46-minute window.  <-- the default
+#   60s       32-minute window, and the tightest tracking of spot available.
+#   90s       48-minute window.  <-- the default
 #   300s      155-minute window. Warm, but the vault compares spot against a 2.5-hour average,
 #             and with maxDeviationBps at 1% a volatile token sits outside the band most of
 #             the time, so swaps and harvests keep deferring.
+#
+# The interval does NOT change how soon a new vault becomes usable. tryConsult answers as soon as
+# any two retained observations span MIN_TWAP_WINDOW, so a freshly listed pool is warm 30 minutes
+# after its first poke at any cadence. What the interval sets is where the window settles once the
+# ring wraps, and therefore how closely the average follows spot — which is what decides whether a
+# volatile token sits inside the deviation band. WarmupTiming.t.sol measures both.
 #
 # test/PokeCadence.t.sol pins all of this.
 #
