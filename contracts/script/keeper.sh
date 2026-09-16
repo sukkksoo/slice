@@ -53,14 +53,14 @@ INTERVAL="${KEEPER_INTERVAL:-90}"
 #   KEEPER_ACCOUNT=slice-keeper KEEPER_PASSWORD=...  ./script/keeper.sh   # keystore
 #   PRIVATE_KEY=0x...                                ./script/keeper.sh   # raw key
 if [ -n "${KEEPER_ACCOUNT:-}" ]; then
-  SIGNER=(--account "$KEEPER_ACCOUNT")
-  # Unattended, so the password cannot be prompted for. cast reads it from this variable.
-  [ -n "${KEEPER_PASSWORD:-}" ] && export CAST_PASSWORD="$KEEPER_PASSWORD"
-  if [ -z "${CAST_PASSWORD:-}" ]; then
-    echo "KEEPER_ACCOUNT is set but KEEPER_PASSWORD is not. The keeper runs unattended, so it"
-    echo "cannot stop to ask for the keystore password on every transaction."
+  if [ -z "${KEEPER_PASSWORD:-}" ]; then
+    echo "KEEPER_ACCOUNT is set but KEEPER_PASSWORD is not. The keeper signs a transaction every"
+    echo "${KEEPER_INTERVAL:-90}s with nobody watching, so it cannot stop to ask for a password."
     exit 1
   fi
+  # --password, not an environment variable: cast does not read CAST_PASSWORD for a keystore, so
+  # relying on it meant a prompt per transaction, which is no use in a loop or in CI.
+  SIGNER=(--account "$KEEPER_ACCOUNT" --password "$KEEPER_PASSWORD")
 else
   : "${PRIVATE_KEY:?set PRIVATE_KEY, or KEEPER_ACCOUNT for a keystore}"
 fi
