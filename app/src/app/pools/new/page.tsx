@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isAddress, zeroAddress, type Address } from "viem";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -30,6 +30,52 @@ export default function NewPoolPage() {
   const [tier, setTier] = useState(3);
 
   const { fee, tickSpacing } = FEE_TIERS[tier];
+
+  // Look the pool up from its Initialize event as soon as a token address is entered.
+  //
+  // A pool key includes the hook, launchpads deploy a different one per pool, and getting it wrong
+  // produces a different pool id and the unhelpful "no pool exists at this combination". Nobody
+  // can be expected to find that address by reading event logs, so the app reads them instead.
+  const [lookup, setLookup] = useState<
+    { state: "idle" | "searching" | "found" | "none" | "error"; message?: string }
+  >({ state: "idle" });
+  const lookedUp = useRef<string>("");
+
+  useEffect(() => {
+    const t = token.trim().toLowerCase();
+    if (!isAddress(t) || lookedUp.current === t) return;
+    lookedUp.current = t;
+
+    let cancelled = false;
+    setLookup({ state: "searching" });
+
+    fetch(`/api/pool-lookup?token=${t}&chain=${targetChain.id}`)
+      .then((r) => r.json())
+      .then((d: { pools?: { fee: number; tickSpacing: number; hooks: string }[]; error?: string }) => {
+        if (cancelled) return;
+        if (d.error) return setLookup({ state: "error", message: d.error });
+        const found = d.pools?.[d.pools.length - 1];
+        if (!found) return setLookup({ state: "none" });
+
+        setHooks(found.hooks);
+        const idx = FEE_TIERS.findIndex(
+          (f) => f.fee === found.fee && f.tickSpacing === found.tickSpacing,
+        );
+        if (idx >= 0) setTier(idx);
+        setLookup({
+          state: "found",
+          message:
+            idx >= 0
+              ? undefined
+              : `This pool uses fee ${found.fee} and tick spacing ${found.tickSpacing}, which is not one of the presets.`,
+        });
+      })
+      .catch(() => !cancelled && setLookup({ state: "error", message: "lookup failed" }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
   const problems = useMemo(
     () => (token || hooks ? validatePool(token, hooks) : []),
     [token, hooks],
@@ -116,7 +162,15 @@ export default function NewPoolPage() {
 
           <Field
             label="Hook address"
-            hint="Launchpads deploy one hook per pool — read it from the pool's Initialize event. Leave as the zero address for a plain pool."
+            hint={
+              lookup.state === "searching"
+                ? "Looking up this token's pool on Arc…"
+                : lookup.state === "found"
+                  ? "Filled in from the pool's Initialize event on chain."
+                  : lookup.state === "none"
+                    ? "No pool found for this token in recent history — enter the hook manually, or leave the zero address for a plain pool."
+                    : "Filled in automatically once a token address is entered. Launchpads deploy one hook per pool; the zero address means a plain pool with none."
+            }
           >
             <input
               className="input mono"
@@ -127,7 +181,14 @@ export default function NewPoolPage() {
             />
           </Field>
 
-          <Field label="Fee tier" hint="Must match the pool exactly, along with its tick spacing.">
+          <Field
+            label="Fee tier"
+            hint={
+              lookup.state === "found" && !lookup.message
+                ? "Matched to the live pool automatically."
+                : lookup.message ?? "Must match the pool exactly, along with its tick spacing."
+            }
+          >
             <div className="grid grid-cols-2 gap-2">
               {FEE_TIERS.map((t, i) => (
                 <button
