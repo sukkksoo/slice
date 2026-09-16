@@ -619,6 +619,18 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     /// @dev A zero liquidity delta collects fees and nothing else, so the returned delta is purely
     ///      fee income and is always a credit.
     function _collectFees() internal returns (uint256 usdcFee, uint256 assetFee) {
+        // v4 rejects a zero-delta update against a position that does not exist, and a position
+        // that does not exist has earned nothing to collect. Without this guard the first
+        // USDC-only deposit into any vault reverts with v4's `CannotUpdateEmptyPosition`: the
+        // swap half of the deposit lands, and the collection that immediately follows it pokes a
+        // position the vault has not opened yet. The amount is irrelevant, so it fails for
+        // everyone, on every vault, forever — the only deposit that ever worked was a two-sided
+        // one, which takes this path not at all.
+        //
+        // The window is narrow but it is the one every vault starts in: once any deposit has
+        // landed, MINIMUM_SHARES is burned to a dead address and the position never empties again.
+        if (totalLiquidity == 0) return (0, 0);
+
         BalanceDelta feesAccrued = _modifyLiquidity(0);
         int128 d0 = feesAccrued.amount0();
         int128 d1 = feesAccrued.amount1();

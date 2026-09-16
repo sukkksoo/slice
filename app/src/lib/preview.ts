@@ -102,10 +102,17 @@ export function previewDepositPair(usdc: bigint, asset: bigint, pool: PoolShape)
 /**
  * Shares a USDC-only deposit would mint, assuming the internal swap fills at spot.
  *
- * This is an estimate, not a quote: it accounts for the pool's LP fee but not for the swap's own
- * price impact or any hook tax. That makes it slightly optimistic, which is the right direction
- * for a floor — the tolerance applied on top is what absorbs the difference. On a pool with a
- * taxed hook the shortfall is systematic, and the UI says so where it shows this figure.
+ * An estimate, and a knowingly optimistic one: it accounts for the pool's LP fee but not for the
+ * swap's price impact or any hook tax. That direction is wrong for a floor, which is worth being
+ * explicit about, because this function used to be the only input to `minShares` and the reasoning
+ * for that was backwards. An optimistic estimate puts the minimum *above* what the call actually
+ * returns, so the tolerance is not absorbing a shortfall — it is the only thing standing between
+ * the depositor and a guaranteed revert. On the live ARC 101 pool the gap was 95 bps against a
+ * default tolerance of 50, so every USDC-only deposit there would have reverted on arithmetic
+ * alone, even after the contract bug behind the first report was fixed.
+ *
+ * So this is now a fallback, shown before an allowance exists and nothing can be simulated. Once
+ * the vault is approved the UI quotes the real call instead, and the floor comes from that.
  */
 export function previewDepositUsdc(usdc: bigint, lpFeePips: number, pool: PoolShape): bigint {
   const net = afterEntryFee(usdc, pool.depositFeeBps);

@@ -43,6 +43,9 @@
   --color-warn: #f0b429;
   --color-warn-dim: #2e2510;
   --color-danger: #ff5f72;
+  /* Same relationship to --color-danger as --color-warn-dim has to --color-warn: a tint dark
+     enough to sit on the navy background without the text losing contrast. */
+  --color-danger-dim: #2e1216;
 
   --radius-panel: 16px;
 }

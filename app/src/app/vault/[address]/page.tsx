@@ -4,7 +4,13 @@ import Link from "next/link";
 import { use, useCallback, useMemo, useState } from "react";
 import type { Address } from "viem";
 import { parseUnits, zeroAddress } from "viem";
-import { useReadContracts, useWaitForTransactionReceipt, useWatchAsset, useWriteContract } from "wagmi";
+import {
+  useReadContracts,
+  useSimulateContract,
+  useWaitForTransactionReceipt,
+  useWatchAsset,
+  useWriteContract,
+} from "wagmi";
 
 import {
   Action,
@@ -35,7 +41,7 @@ import {
   withSlippage,
   type PoolShape,
 } from "@/lib/preview";
-import { explorerAddress } from "@/lib/tx";
+import { describeError, explorerAddress } from "@/lib/tx";
 import { targetChain } from "@/lib/chain";
 
 type Mode = "usdc" | "pair";
@@ -236,11 +242,104 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     totalLiquidity,
     depositFeeBps,
   ]);
-  const minShares = withSlippage(expectedShares, bps);
 
-  const [out0, out1] = usdcIsCurrency0 ? [out.usdc, out.asset] : [out.asset, out.usdc];
+  // The arithmetic above is a fallback, not a quote. It cannot see the swap's price impact and it
+  // cannot see a hook's cut, and both of those make it read high — which is the dangerous
+  // direction, because `minShares` is derived from it. A staker hit exactly that on ARC 101: the
+  // panel offered 0.0001475 shares with a 0.5% tolerance, and the call would have returned
+  // 0.0001461 — 95 bps short, so the floor rejected a deposit that was working correctly.
+  //
+  // So once there is an allowance to simulate against, ask the chain what the call actually
+  // returns. `eth_call` runs the whole thing — entry fee, swap, hook, mint — and hands back the
+  // shares. The floor is then a tolerance below a real number rather than below a hopeful one,
+  // and it still does its job: the tolerance covers movement between this block and inclusion.
+  const usdcApproved = Boolean(account) && usdcAllowance >= usdcAmount;
+  const assetApproved = mode === "pair" ? assetAllowance >= assetAmount : true;
+  const [qa0, qa1] = usdcIsCurrency0 ? [usdcAmount, assetAmount] : [assetAmount, usdcAmount];
+
+  const quote = useSimulateContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: mode === "usdc" ? "depositUsdc" : "deposit",
+    // A zero floor here so the simulation reports what the call returns rather than whether it
+    // clears a floor derived from itself.
+    args: mode === "usdc" ? [usdcAmount, 0n, holder] : [qa0, qa1, 0n, holder],
+    account,
+    chainId: targetChain.id,
+    query: {
+      enabled:
+        Boolean(account) &&
+        !guard.wrongChain &&
+        usdcAmount > 0n &&
+        usdcApproved &&
+        assetApproved &&
+        (mode === "pair" ? assetAmount > 0n : canSwap),
+      // A revert is an answer, not a transport failure worth hammering the node over.
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  });
+
+  const quotedShares = typeof quote.data?.result === "bigint" ? quote.data.result : undefined;
+
+  // What the panel shows and what it insists on both come from the quote when there is one.
+  const shownShares = quotedShares ?? expectedShares;
+  const minShares = withSlippage(shownShares, bps);
+
+  // A revert the simulation found is one the person would otherwise discover by paying gas for a
+  // failed transaction — which is what happened here, twice, with nothing on screen to explain it.
+  const quoteError = quote.error ?? null;
+
+  // `previewRedeem` is an honest read of what the position is worth, but it is not what the
+  // withdrawal returns: `withdraw` harvests on the way in, and a harvest swaps the asset-side fees
+  // into USDC, which moves the very price the preview was taken at. Small, usually — and "usually"
+  // is exactly the word that put a 95 bps gap into the deposit floor. Quote it instead.
+  const withdrawQuote = useSimulateContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "withdraw",
+    args: [withdrawShares, 0n, 0n, holder],
+    account,
+    chainId: targetChain.id,
+    query: {
+      enabled:
+        Boolean(account) && !guard.wrongChain && withdrawShares > 0n && withdrawShares <= userShares,
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  });
+  const quotedOut = Array.isArray(withdrawQuote.data?.result)
+    ? (withdrawQuote.data.result as readonly [bigint, bigint])
+    : undefined;
+
+  const [previewed0, previewed1] = usdcIsCurrency0 ? [out.usdc, out.asset] : [out.asset, out.usdc];
+  const [out0, out1] = quotedOut ?? [previewed0, previewed1];
   const min0 = withSlippage(out0, bps);
   const min1 = withSlippage(out1, bps);
+  // Back into USDC/asset terms for display, so the panel shows what the call was quoted at
+  // rather than a preview taken before the harvest that runs inside it.
+  const [shownUsdcOut, shownAssetOut] = usdcIsCurrency0 ? [out0, out1] : [out1, out0];
+  const [minUsdcOut, minAssetOut] = usdcIsCurrency0 ? [min0, min1] : [min1, min0];
+
+  // "Withdraw all" sends a different size to the field above it, so it needs its own quote rather
+  // than borrowing that one's. It is the exit most people take, and it should not be the one path
+  // still floored by a number taken before the harvest inside the call.
+  const exitQuote = useSimulateContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "withdraw",
+    args: [userShares, 0n, 0n, holder],
+    account,
+    chainId: targetChain.id,
+    query: {
+      enabled: Boolean(account) && !guard.wrongChain && userShares > 0n,
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  });
+  const quotedExit = Array.isArray(exitQuote.data?.result)
+    ? (exitQuote.data.result as readonly [bigint, bigint])
+    : undefined;
 
   const shareOfPool = totalSupply > 0n ? Number((userShares * 1_000_000n) / totalSupply) / 10_000 : 0;
   const streamActive = periodFinish * 1000n > BigInt(Date.now());
@@ -327,7 +426,10 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     usdcAmount === 0n ||
     (mode === "pair" && assetAmount === 0n) ||
     (mode === "usdc" && !canSwap) ||
-    (previewReady && expectedShares === 0n);
+    (previewReady && shownShares === 0n) ||
+    // The chain has already run this call and it reverted. Offering the button anyway is how
+    // somebody ends up paying gas to be told the same thing.
+    Boolean(quoteError);
 
   return (
     <div className="space-y-6">
@@ -426,8 +528,8 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
             <p className="mt-3 rounded-lg border border-[var(--color-warn)] bg-[var(--color-warn-dim)] px-3.5 py-2.5 text-[12px] leading-relaxed text-[var(--color-warn)]">
               This pool has a hook, and launchpad hooks usually tax swaps. A USDC-only deposit
               swaps half the input and pays that tax; supplying both sides does not swap and pays
-              none of it. The estimate below does not include the hook&apos;s cut, so a tight
-              slippage setting may revert here — that is the floor doing its job.
+              none of it. The figure below is quoted from the chain once you have approved, so it
+              includes the hook&apos;s cut — before then it is an estimate that does not.
             </p>
           )}
 
@@ -471,9 +573,14 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
               </div>
             )}
             <div className="flex items-baseline justify-between text-[13px]">
-              <dt className="text-[var(--color-muted)]">You receive (est.)</dt>
+              <dt className="text-[var(--color-muted)]">
+                {quotedShares !== undefined ? "You receive" : "You receive (est.)"}
+                {quotedShares !== undefined && (
+                  <span className="ml-1.5 text-[11px] text-[var(--color-accent)]">quoted</span>
+                )}
+              </dt>
               <dd className="num text-[var(--color-text)]">
-                {expectedShares > 0n ? `${formatSig(expectedShares, 18)} ${shareSymbol}` : "—"}
+                {shownShares > 0n ? `${formatSig(shownShares, 18)} ${shareSymbol}` : "—"}
               </dd>
             </div>
             <div className="flex items-baseline justify-between border-t border-[var(--color-border)] pt-2 text-[13px]">
@@ -493,6 +600,12 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
               )}
             </p>
           </dl>
+
+          {quoteError && (
+            <p className="mt-4 rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger-dim)] px-3.5 py-2.5 text-[12px] leading-relaxed text-[var(--color-danger)]">
+              This deposit would fail: {describeError(quoteError)}
+            </p>
+          )}
 
           <div className="mt-4">
             <SlippageControl bps={bps} setBps={setBps} />
@@ -582,16 +695,17 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
             {withdrawShares > 0n && withdrawShares <= userShares && (
               <dl className="mt-3 space-y-1.5 text-[12px]">
                 <div className="flex justify-between text-[var(--color-muted)]">
-                  <dt>You receive (est.)</dt>
+                  <dt>{quotedOut ? "You receive" : "You receive (est.)"}</dt>
                   <dd className="num text-[var(--color-text)]">
-                    {formatUsd(out.usdc)} + {formatAmount(out.asset, assetDecimals, 4)} {assetSymbol}
+                    {formatUsd(shownUsdcOut)} + {formatAmount(shownAssetOut, assetDecimals, 4)}{" "}
+                    {assetSymbol}
                   </dd>
                 </div>
                 <div className="flex justify-between text-[var(--color-muted)]">
                   <dt>Minimum you accept</dt>
                   <dd className="num text-[var(--color-text)]">
-                    {formatUsd(withSlippage(out.usdc, bps))} +{" "}
-                    {formatAmount(withSlippage(out.asset, bps), assetDecimals, 4)} {assetSymbol}
+                    {formatUsd(minUsdcOut)} + {formatAmount(minAssetOut, assetDecimals, 4)}{" "}
+                    {assetSymbol}
                   </dd>
                 </div>
               </dl>
@@ -612,7 +726,8 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
                 onClick={() => {
                   // Exact share balance, not a string round-trip — so "all" means all.
                   const [u, a] = [yours.usdc, yours.asset];
-                  const [w0, w1] = usdcIsCurrency0 ? [u, a] : [a, u];
+                  const [p0, p1] = usdcIsCurrency0 ? [u, a] : [a, u];
+                  const [w0, w1] = quotedExit ?? [p0, p1];
                   withdraw(userShares, withSlippage(w0, bps), withSlippage(w1, bps));
                 }}
                 label="Withdraw all"

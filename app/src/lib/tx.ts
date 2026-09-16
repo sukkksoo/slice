@@ -19,7 +19,12 @@ export function explorerAddress(address: string): string {
  */
 const EXPLANATIONS: Record<string, string> = {
   SlippageExceeded:
-    "The price moved between quoting and confirming, so you would have received less than your slippage setting allows. Nothing was taken. Try again, or raise the tolerance if the pool is volatile or carries a hook tax.",
+    "You would have received less than your slippage setting allows, so the deposit refused itself rather than fill at a worse price. Nothing was taken. Raise the tolerance if the pool is volatile, or try again.",
+  // Uniswap's, not ours: a zero-delta update against a position holding nothing. Kept because a
+  // vault deployed before this was fixed still reverts this way on its first USDC-only deposit,
+  // and "CannotUpdateEmptyPosition" tells nobody anything.
+  CannotUpdateEmptyPosition:
+    "This vault is running an older build that cannot accept a USDC-only deposit as its very first one. Supply both tokens instead, or use a vault listed more recently.",
   PriceOutOfBand:
     "The pool's spot price has drifted too far from its 30-minute average for the vault to swap safely, or the oracle is not warm yet. Two-sided deposits do not swap and are unaffected.",
   ZeroAmount:

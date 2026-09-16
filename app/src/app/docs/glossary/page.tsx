@@ -145,6 +145,21 @@ export default function Glossary() {
           </P>
         </Term>
 
+        <Term word="Quote" also="as opposed to an estimate">
+          <P>
+            Before you stake, the app runs the whole transaction against the chain without sending
+            it, and reads back what it would return. That is a quote: it has already paid the
+            entry fee, done the swap, and been through whatever the pool&apos;s hook does. The
+            minimum written into your transaction is a slippage tolerance below that number.
+          </P>
+          <P>
+            An estimate is what you see before you have approved the vault to move your USDC —
+            nothing can be simulated until then, so the panel falls back to arithmetic. It is
+            labelled as an estimate because it cannot see a hook&apos;s cut and will read slightly
+            high on pools that have one.
+          </P>
+        </Term>
+
         <Term word="Basis points" also="bps">
           <P>
             Hundredths of a percent. 100 bps is 1%, 50 bps is 0.5%. Used because &quot;a 0.5%
