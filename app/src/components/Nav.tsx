@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 
@@ -25,6 +26,24 @@ export function Nav() {
   const { switchChain } = useSwitchChain();
 
   const wrongChain = isConnected && chainId !== targetChain.id;
+
+  // A dropdown that cannot be dismissed by clicking away is a trap on a phone, where there is no
+  // Escape key and the button sits under a thumb.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPickerOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [pickerOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.72)] backdrop-blur-xl backdrop-saturate-150">
@@ -75,18 +94,55 @@ export function Nav() {
               <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
               <span className="mono text-xs">{address ? shortAddress(address) : "Connected"}</span>
             </button>
-          ) : (
+          ) : connectors.length === 1 ? (
             <button
               type="button"
-              disabled={isPending || connectors.length === 0}
-              onClick={() => connectors[0] && connect({ connector: connectors[0] })}
+              disabled={isPending}
+              onClick={() => connect({ connector: connectors[0]! })}
               className="btn btn-primary"
             >
-              {isPending ? "Connecting…" : (<><span className="sm:hidden">Connect</span><span className="hidden sm:inline">Connect wallet</span></>)}
+              {isPending ? "Connecting…" : <ConnectLabel />}
             </button>
+          ) : (
+            <div ref={pickerRef} className="relative">
+              <button
+                type="button"
+                disabled={isPending || connectors.length === 0}
+                onClick={() => setPickerOpen((o) => !o)}
+                className="btn btn-primary"
+              >
+                {isPending ? "Connecting…" : <ConnectLabel />}
+              </button>
+              {pickerOpen && (
+                <div className="panel-raised absolute right-0 top-[calc(100%+6px)] w-52 overflow-hidden p-1">
+                  {connectors.map((c) => (
+                    <button
+                      key={c.uid}
+                      type="button"
+                      onClick={() => {
+                        setPickerOpen(false);
+                        connect({ connector: c });
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-[var(--color-surface-2)]"
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
     </header>
+  );
+}
+
+function ConnectLabel() {
+  return (
+    <>
+      <span className="sm:hidden">Connect</span>
+      <span className="hidden sm:inline">Connect wallet</span>
+    </>
   );
 }

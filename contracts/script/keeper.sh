@@ -13,15 +13,35 @@
 # Nothing about this is privileged: `poke` and `harvest` are permissionless and neither lets the
 # caller redirect a cent. Anyone can run this. It costs gas and nothing else.
 #
-# Poke more often than you think: the averaging window is only as long as the oldest retained
-# observation, the ring holds 32, and a same-second poke is a no-op. Every 5 minutes fills the
-# ring across ~2.6 hours, which is comfortably more than the 30-minute minimum.
+# CHOOSING THE INTERVAL — it is not "as often as possible"
+#
+# The oracle ring holds 32 observations, so a full ring spans only 31 intervals, and the TWAP
+# is taken over that whole span. Both ends of the range bite:
+#
+#   15s, 30s  ring spans under 30 minutes -> tryConsult never returns a price. The oracle
+#             stays cold forever, however long the keeper runs. Poking harder makes it worse.
+#   60s       31-minute window. Warm, with a minute of margin.
+#   90s       46-minute window.  <-- the default
+#   300s      155-minute window. Warm, but the vault compares spot against a 2.5-hour average,
+#             and with maxDeviationBps at 1% a volatile token sits outside the band most of
+#             the time, so swaps and harvests keep deferring.
+#
+# test/PokeCadence.t.sol pins all of this.
 set -euo pipefail
 
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
 FACTORY="${SLICE_FACTORY:-0x219DF226816e4CCcAAF8C7fAB7469837e857c05b}"
-INTERVAL="${KEEPER_INTERVAL:-300}"
+INTERVAL="${KEEPER_INTERVAL:-90}"
 : "${PRIVATE_KEY:?set PRIVATE_KEY}"
+
+# Below ~58s a full ring cannot span the 30-minute window, so the oracle would never warm.
+# Refuse rather than run a keeper that burns gas forever and unlocks nothing.
+if [ "$INTERVAL" -lt 60 ]; then
+  echo "KEEPER_INTERVAL=$INTERVAL is too short. The oracle ring holds 32 observations, so an"
+  echo "interval under ~58s spans less than the 30-minute TWAP window and never warms."
+  echo "Use 90 (the default), or anything from 60 upward."
+  exit 1
+fi
 case "$PRIVATE_KEY" in 0x*) ;; *) PRIVATE_KEY="0x$PRIVATE_KEY";; esac
 
 ONCE=false

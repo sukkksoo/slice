@@ -1,0 +1,58 @@
+# Keeps every Slice vault's price oracle warm on Arc mainnet.
+#
+# WHY THIS IS A LONG-RUNNING JOB AND NOT A CRON
+#
+# The oracle needs observations roughly every 90 seconds: the ring holds 32, so a full ring spans
+# 31 intervals, and the vault will not price a swap until that span reaches 30 minutes. GitHub's
+# scheduler cannot run more often than every 5 minutes and routinely delays runs beyond that,
+# which would leave a 2.5-hour-plus averaging window — warm, but so far from spot that the vault's
+# 1% deviation band rejects most swaps anyway.
+#
+# So each run holds the loop open for ~5h45m and the schedule starts the next one as it finishes.
+# The gap between runs is under a minute, which the ring absorbs.
+#
+# COST: free on a public repository. On a private one this consumes roughly 24 hours of Actions
+# minutes per day, well past the free allowance — run it on a small VM instead.
+name: keeper
+
+on:
+  schedule:
+    # Every 6 hours. Each run covers 5h45m, so the next starts as the previous is winding down.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Never let two keepers run at once — they would spend gas racing each other to the same poke.
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run the keeper
+        working-directory: contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          ARC_RPC_URL: https://rpc.mainnet.arc.io
+          SLICE_FACTORY: "0x219DF226816e4CCcAAF8C7fAB7469837e857c05b"
+          KEEPER_INTERVAL: "90"
+        run: |
+          if [ -z "$PRIVATE_KEY" ]; then
+            echo "KEEPER_PRIVATE_KEY is not set. Add it under Settings -> Secrets and variables"
+            echo "-> Actions. Use a key that holds nothing but gas: poke and harvest are"
+            echo "permissionless, so a leaked keeper key costs the gas in it and nothing more."
+            exit 1
+          fi
+          chmod +x script/keeper.sh
+          # Leave a quarter of an hour of headroom under the job timeout so the run ends cleanly
+          # rather than being killed mid-transaction.
+          timeout 20700 ./script/keeper.sh || code=$?
+          # 124 is timeout's own exit code: the loop ran its full stint, which is success here.
+          if [ "${code:-0}" -ne 0 ] && [ "${code:-0}" -ne 124 ]; then exit "$code"; fi
