@@ -11,8 +11,8 @@ import { arc, arcTestnet } from "./chain";
  */
 export const DEPLOYMENTS: Record<number, { factory: Address; vaultDeployer: Address } | undefined> = {
   [arcTestnet.id]: {
-    factory: "0x28e745eBf4b8E8b758c7B4a11b2e453322cDC3CA",
-    vaultDeployer: "0x1F522743D95DD04b934508279a69683Ad9a37eF9",
+    factory: "0xc013A0a50A0841d1341EA85461431411DC4cb514",
+    vaultDeployer: "0xFDfd46103A5D507827E59aa68247537657284c47",
   },
   // Arc mainnet: not deployed. The contracts are unaudited; testnet is the ceiling for now.
   [arc.id]: undefined,
