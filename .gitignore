@@ -10,3 +10,6 @@ contracts/cache/
 contracts/broadcast/
 *.tsbuildinfo
 .vercel/
+
+# stray debug harnesses; screenshots and probes belong in the scratchpad
+app/*.mjs
