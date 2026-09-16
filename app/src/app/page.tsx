@@ -254,7 +254,7 @@ function Audience({
       <ul className="mt-6 space-y-3 border-t border-[var(--color-border)] pt-6">
         {points.map((p) => (
           <li key={p} className="flex gap-3 text-sm text-[var(--color-muted)]">
-            <span className="mt-[3px] grid size-4 shrink-0 place-items-center rounded-full bg-[var(--color-accent-dim)] text-[9px] text-[var(--color-accent)]">
+            <span className="mt-[3px] grid size-[18px] shrink-0 place-items-center rounded-full bg-[var(--color-accent-dim)] text-[10px] font-bold text-[var(--color-accent-deep)]">
               ✓
             </span>
             <span>{p}</span>

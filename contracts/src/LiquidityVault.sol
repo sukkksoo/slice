@@ -68,6 +68,11 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     /// @notice Hard ceiling on the protocol's cut of harvested fees (10%).
     uint16 public constant MAX_PROTOCOL_FEE_BPS = 1_000;
 
+    /// @notice Hard ceiling on the entry fee (10%).
+    /// @dev Bounded in the contract so the owner cannot raise it arbitrarily on people who are
+    ///      already staked. A depositor can read the current rate before committing.
+    uint16 public constant MAX_DEPOSIT_FEE_BPS = 1_000;
+
     /// @notice Hard ceiling on tolerated spot-vs-TWAP divergence for automated swaps (5%).
     uint16 public constant MAX_DEVIATION_BPS = 500;
 
@@ -135,6 +140,21 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     /// @notice Tolerated divergence between spot and TWAP when the vault swaps on its own pool.
     uint16 public maxDeviationBps = 100;
 
+    /// @notice Entry fee, in bps, taken off the top of every deposit.
+    /// @dev This is a haircut on principal, not a share of yield: it is charged on the tokens
+    ///      supplied, before any liquidity is added. Because it reduces what a depositor actually
+    ///      gets, it is surfaced at the point of deposit and written up in the docs rather than
+    ///      left for people to discover from the bytecode.
+    uint16 public depositFeeBps = 500;
+
+    /// @notice Where entry fees are sent. Defaults to the treasury until the owner points it
+    ///         somewhere else.
+    address public feeRecipient;
+
+    /// @notice Entry fees accrued in each currency, awaiting collection by the fee recipient.
+    uint256 public pendingDepositFees0;
+    uint256 public pendingDepositFees1;
+
     // --- reward streaming state (Synthetix-style, denominated in rewardCurrency) ---
 
     uint256 public rewardRate; // reward units per second, scaled by 1e18
@@ -159,6 +179,9 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
     event Compounded(uint256 usdcIn, uint128 liquidityAdded);
     event RewardPaid(address indexed account, uint256 amount);
     event ProtocolFeesCollected(address indexed treasury, uint256 amount);
+    event DepositFeeCharged(address indexed payer, uint256 amount0, uint256 amount1);
+    event DepositFeesCollected(address indexed to, uint256 amount0, uint256 amount1);
+    event DepositFeeUpdated(uint16 depositFeeBps, address indexed feeRecipient);
     event ParametersUpdated(uint16 protocolFeeBps, uint16 streamBps, uint16 maxDeviationBps);
     event OwnerUpdated(address indexed previousOwner, address indexed newOwner);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
@@ -188,7 +211,7 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         address _owner,
         address _treasury,
         string memory nameSuffix
-    ) ERC20(string.concat("Sluice LP ", nameSuffix), string.concat("sLP-", nameSuffix)) {
+    ) ERC20(string.concat("Slice LP ", nameSuffix), string.concat("sLP-", nameSuffix)) {
         if (key.currency0.isAddressZero()) revert NativeCurrencyUnsupported();
         if (_owner == address(0) || _treasury == address(0)) revert ParameterOutOfRange();
 
@@ -214,7 +237,9 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         owner = _owner;
         treasury = _treasury;
         emit OwnerUpdated(address(0), _owner);
+        feeRecipient = _treasury;
         emit TreasuryUpdated(address(0), _treasury);
+        emit DepositFeeUpdated(depositFeeBps, _treasury);
     }
 
     // --- views ---
@@ -279,6 +304,9 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
             IERC20(Currency.unwrap(currency1)).safeTransferFrom(msg.sender, address(this), amount1Max);
         }
 
+        // Charged on principal, before anything is deployed, so the position reflects the net.
+        (amount0Max, amount1Max) = _chargeDepositFee(amount0Max, amount1Max);
+
         bytes memory result = poolManager.unlock(abi.encode(Action.Deposit, abi.encode(amount0Max, amount1Max)));
         (uint128 liquidityAdded, uint256 used0, uint256 used1) = abi.decode(result, (uint128, uint256, uint256));
 
@@ -307,6 +335,12 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         _harvest();
 
         IERC20(Currency.unwrap(rewardCurrency)).safeTransferFrom(msg.sender, address(this), usdcAmount);
+
+        // Charged on principal, before anything is deployed. The refund below is computed against
+        // the net amount, so the depositor is never refunded money that has already left.
+        (uint256 net0, uint256 net1) =
+            usdcIsCurrency0 ? _chargeDepositFee(usdcAmount, 0) : _chargeDepositFee(0, usdcAmount);
+        usdcAmount = usdcIsCurrency0 ? net0 : net1;
 
         bytes memory result = poolManager.unlock(abi.encode(Action.DepositUsdc, abi.encode(usdcAmount)));
         (uint128 liquidityAdded, uint256 usdcUsed, uint256 assetRefund) =
@@ -684,6 +718,62 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         emit Harvested(fee0, fee1, protocolCut, streamed, queued);
     }
 
+    /// @notice Take the entry fee off the supplied amounts, accruing it, and return the remainder.
+    ///
+    /// @dev Accrued rather than pushed, for the same reason protocol fees are. Arc's USDC reverts
+    ///      for a blocklisted party, so transferring to the fee recipient inline would put that
+    ///      third-party decision on the deposit path: blocklist the recipient and deposits stop
+    ///      working for everyone. Accruing keeps the deposit path free of any transfer that
+    ///      somebody else can make fail. `ProtocolFees.t.sol` covers this.
+    ///
+    /// @dev Kept in its own bucket rather than mixed into `pendingCompound`, so it is never part of
+    ///      any staker's claim and stays distinguishable from the protocol's share of harvested
+    ///      yield, which is a different mechanism with a different recipient.
+    function _chargeDepositFee(uint256 amount0, uint256 amount1)
+        internal
+        returns (uint256 net0, uint256 net1)
+    {
+        uint16 bps = depositFeeBps;
+        if (bps == 0) return (amount0, amount1);
+
+        uint256 fee0 = (amount0 * bps) / BPS;
+        uint256 fee1 = (amount1 * bps) / BPS;
+        if (fee0 == 0 && fee1 == 0) return (amount0, amount1);
+
+        if (fee0 > 0) pendingDepositFees0 += fee0;
+        if (fee1 > 0) pendingDepositFees1 += fee1;
+
+        emit DepositFeeCharged(msg.sender, fee0, fee1);
+        return (amount0 - fee0, amount1 - fee1);
+    }
+
+    /// @notice Send accrued entry fees to the fee recipient.
+    /// @dev Permissionless, because the destination is fixed — the caller cannot redirect anything.
+    function collectDepositFees() external nonReentrant returns (uint256 fee0, uint256 fee1) {
+        fee0 = pendingDepositFees0;
+        fee1 = pendingDepositFees1;
+        if (fee0 == 0 && fee1 == 0) return (0, 0);
+
+        pendingDepositFees0 = 0;
+        pendingDepositFees1 = 0;
+
+        address to = feeRecipient;
+        if (fee0 > 0) IERC20(Currency.unwrap(currency0)).safeTransfer(to, fee0);
+        if (fee1 > 0) IERC20(Currency.unwrap(currency1)).safeTransfer(to, fee1);
+
+        emit DepositFeesCollected(to, fee0, fee1);
+    }
+
+    /// @notice The entry fee that would be charged on `amount0`/`amount1`, for display.
+    function previewDepositFee(uint256 amount0, uint256 amount1)
+        external
+        view
+        returns (uint256 fee0, uint256 fee1)
+    {
+        uint16 bps = depositFeeBps;
+        return ((amount0 * bps) / BPS, (amount1 * bps) / BPS);
+    }
+
     function _mintShares(uint128 liquidityAdded, address to) internal returns (uint256 shares) {
         uint256 supply = totalSupply();
         uint128 liquidityBefore = totalLiquidity;
@@ -744,6 +834,14 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         streamBps = _streamBps;
         maxDeviationBps = _maxDeviationBps;
         emit ParametersUpdated(_protocolFeeBps, _streamBps, _maxDeviationBps);
+    }
+
+    function setDepositFee(uint16 _depositFeeBps, address _feeRecipient) external onlyOwner {
+        if (_depositFeeBps > MAX_DEPOSIT_FEE_BPS) revert ParameterOutOfRange();
+        if (_feeRecipient == address(0)) revert ParameterOutOfRange();
+        depositFeeBps = _depositFeeBps;
+        feeRecipient = _feeRecipient;
+        emit DepositFeeUpdated(_depositFeeBps, _feeRecipient);
     }
 
     function setTreasury(address _treasury) external onlyOwner {

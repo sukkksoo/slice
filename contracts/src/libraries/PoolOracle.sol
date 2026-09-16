@@ -43,7 +43,7 @@ library PoolOracle {
     ///      consuming ring slots and shrinking the effective averaging window. The latched price is
     ///      also left alone in that case, so the first price seen in a second is the one that
     ///      counts and a same-block sandwich cannot overwrite it.
-    function record(Oracle storage self, uint160 sqrtPriceX96) internal {
+    function record(Oracle storage self, uint160 sqrtPriceX96) public {
         uint32 nowTs = uint32(block.timestamp);
         uint32 last = self.lastTimestamp;
 
@@ -79,7 +79,7 @@ library PoolOracle {
     /// @dev Non-reverting so that callers on a user-facing path (a harvest, say) can degrade
     ///      gracefully instead of bricking while the oracle is still warming up.
     function tryConsult(Oracle storage self, uint32 minWindow)
-        internal
+        public
         view
         returns (bool ok, uint160 twapSqrtPriceX96)
     {

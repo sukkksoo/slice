@@ -1,52 +1,63 @@
 @import "tailwindcss";
 
 /*
- * Design system.
+ * Design system — Arc / Circle palette.
  *
- * Sans for everything a person reads; mono reserved for numbers, addresses and code, where
- * tabular alignment actually earns its keep. The previous build used mono at 11px for all text,
- * which read as a terminal dump rather than a product.
+ * Circle's identity is a deep purple ("licorice", #29233b) on a canvas that is deliberately never
+ * neutral white: it is always a pale blue-lavender. That periwinkle canvas plus Circle blue is what
+ * makes the family recognisable, so the theme is built on those rather than on a generic dark
+ * dashboard. Accents run blue -> violet -> cyan, with a separate mint reserved for "up" so gains
+ * never compete with brand colour for attention.
  */
 @theme {
-  /* surfaces — near-black with a cool undertone, layered rather than flat */
-  --color-bg: #07080b;
-  --color-surface: #0c0e13;
-  --color-surface-2: #11141b;
-  --color-surface-3: #171b24;
-  --color-border: #1b202b;
-  --color-border-strong: #2a3140;
+  /* canvas + surfaces */
+  --color-bg: #eceefb;
+  --color-bg-deep: #dfe3f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f7fe;
+  --color-surface-3: #eceefb;
+  --color-border: #dcdff3;
+  --color-border-strong: #c3c8e8;
 
-  /* text */
-  --color-text: #eef1f6;
-  --color-muted: #8b94a8;
-  --color-dim: #5a6376;
+  /* text — Circle licorice and its tints */
+  --color-text: #221d33;
+  --color-muted: #5b5780;
+  --color-dim: #8b88a8;
 
-  /* brand + semantic */
-  --color-accent: #34d399;
-  --color-accent-bright: #5eead4;
-  --color-accent-dim: #0d2a20;
-  --color-up: #34d399;
-  --color-down: #f87171;
-  --color-warn: #fbbf24;
-  --color-warn-dim: #2a2210;
-  --color-danger: #f87171;
+  /* brand */
+  --color-accent: #3b6ff0;
+  --color-accent-bright: #5b8cff;
+  --color-accent-deep: #2452c9;
+  --color-accent-dim: #e4ebff;
+  --color-violet: #6e5ae6;
+  --color-violet-dim: #ece7fe;
+  --color-cyan: #17b9d6;
+  --color-cyan-dim: #dcf5fa;
 
-  --radius-panel: 14px;
+  /* semantic */
+  --color-up: #0e9f6e;
+  --color-up-dim: #dcf5ec;
+  --color-down: #e0374a;
+  --color-warn: #b06f00;
+  --color-warn-dim: #fdf0d8;
+  --color-danger: #e0374a;
+
+  --radius-panel: 16px;
 }
 
 html {
   background: var(--color-bg);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-/*
- * Fonts are wired here rather than in @theme: Tailwind v4 evaluates theme values at build time and
- * silently drops any it cannot resolve, which quietly discarded the next/font variables and left
- * every heading rendering in the mono fallback.
- */
 :root {
   --ui-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --ui-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --shadow-sm: 0 1px 2px rgba(34, 29, 51, 0.05), 0 1px 3px rgba(34, 29, 51, 0.04);
+  --shadow-md: 0 2px 4px rgba(34, 29, 51, 0.04), 0 8px 24px -8px rgba(34, 29, 51, 0.12);
+  --shadow-lg: 0 4px 8px rgba(34, 29, 51, 0.05), 0 20px 48px -16px rgba(34, 29, 51, 0.18);
+  --shadow-brand: 0 6px 20px -6px rgba(59, 111, 240, 0.45);
 }
 
 body {
@@ -57,17 +68,21 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Ambient wash behind the page. Keeps large dark areas from reading as dead space. */
+/*
+ * Ambient colour field. Large flat areas of periwinkle read as dead space, so three slow-drifting
+ * blobs keep the canvas alive without ever sitting behind body text.
+ */
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: -20%;
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(60rem 30rem at 15% -8%, rgba(52, 211, 153, 0.07), transparent 60%),
-    radial-gradient(45rem 25rem at 95% 0%, rgba(94, 234, 212, 0.045), transparent 55%);
-  animation: sl-wash 26s ease-in-out infinite;
+    radial-gradient(38rem 26rem at 12% 4%, rgba(91, 140, 255, 0.28), transparent 62%),
+    radial-gradient(34rem 24rem at 88% 0%, rgba(110, 90, 230, 0.22), transparent 58%),
+    radial-gradient(30rem 22rem at 70% 42%, rgba(23, 185, 214, 0.16), transparent 60%);
+  animation: sl-wash 30s ease-in-out infinite;
 }
 
 body > * {
@@ -75,48 +90,78 @@ body > * {
   z-index: 1;
 }
 
-/* --- primitives --- */
+/* --- surfaces --- */
 
 .panel {
-  background: linear-gradient(180deg, var(--color-surface) 0%, #0a0c11 100%);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-raised {
-  background: linear-gradient(180deg, var(--color-surface-2) 0%, var(--color-surface) 100%);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
-    0 12px 32px -12px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-md);
 }
 
-/* Tabular figures so columns of numbers line up instead of shimmering as they update. */
+/* Frosted, for things that float over the colour field. */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-lg);
+}
+
+/* A hairline gradient edge, for the one or two elements that should read as "brand". */
+.brand-edge {
+  position: relative;
+}
+.brand-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-violet), var(--color-cyan));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* --- type --- */
+
 .num {
   font-family: var(--ui-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .mono {
   font-family: var(--ui-mono);
 }
 
-pre, code {
+pre,
+code {
   font-family: var(--ui-mono);
 }
 
 .label {
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--color-dim);
 }
 
 .accent-text {
-  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent));
+  background: linear-gradient(115deg, var(--color-accent-deep), var(--color-violet) 55%, var(--color-cyan));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -129,10 +174,20 @@ pre, code {
 /* --- interaction --- */
 
 .row-hover {
-  transition: background-color 120ms ease;
+  transition: background-color 140ms ease;
 }
 .row-hover:hover {
   background: var(--color-surface-2);
+}
+
+.lift {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn {
@@ -140,13 +195,14 @@ pre, code {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 10px;
+  border-radius: 11px;
   font-weight: 600;
-  font-size: 13px;
-  padding: 0.6rem 1rem;
+  font-size: 13.5px;
+  padding: 0.62rem 1.05rem;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
+    box-shadow 140ms ease,
     opacity 140ms ease,
     transform 80ms ease;
 }
@@ -154,42 +210,50 @@ pre, code {
   transform: translateY(1px);
 }
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent));
-  color: #04120c;
-  box-shadow: 0 6px 20px -8px rgba(52, 211, 153, 0.7);
+  background: linear-gradient(135deg, var(--color-accent-bright), var(--color-accent) 60%, var(--color-violet));
+  color: #fff;
+  box-shadow: var(--shadow-brand);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.07);
+  filter: brightness(1.06) saturate(1.05);
+  box-shadow: 0 8px 26px -6px rgba(59, 111, 240, 0.55);
 }
 
 .btn-ghost {
-  background: var(--color-surface-2);
+  background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   color: var(--color-text);
+  box-shadow: var(--shadow-sm);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--color-surface-3);
-  border-color: #38414f;
+  background: var(--color-surface-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
 }
 
 .input {
   width: 100%;
-  background: var(--color-bg);
+  background: var(--color-surface-2);
   border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
-  padding: 0.65rem 0.85rem;
+  border-radius: 11px;
+  padding: 0.7rem 0.9rem;
   font-size: 15px;
   color: var(--color-text);
   outline: none;
-  transition: border-color 140ms ease;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 .input:focus {
+  background: var(--color-surface);
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(59, 111, 240, 0.14);
 }
 .input::placeholder {
   color: var(--color-dim);
@@ -206,16 +270,16 @@ pre, code {
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-surface-2);
-  border-radius: 6px;
+  background: var(--color-surface-3);
+  border-radius: 7px;
 }
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
-  animation: shimmer 1.6s infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: shimmer 1.5s infinite;
 }
 
 @keyframes pulse-dot {
@@ -224,14 +288,14 @@ pre, code {
     opacity: 1;
   }
   50% {
-    opacity: 0.35;
+    opacity: 0.5;
   }
 }
 .live-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+  animation: pulse-dot 2.2s ease-in-out infinite;
 }
 
-/* --- hero diagram motion --- */
+/* --- diagram motion --- */
 
 @keyframes sl-flow {
   from {
@@ -268,40 +332,55 @@ pre, code {
 @keyframes sl-pulse {
   0%,
   100% {
-    opacity: 0.85;
+    opacity: 0.9;
     r: 9;
   }
   50% {
     opacity: 1;
-    r: 11;
+    r: 11.5;
   }
 }
 .sl-pulse {
   animation: sl-pulse 2.4s ease-in-out infinite;
 }
 
-/* Slow drift on the ambient wash, so large dark areas are never completely static. */
 @keyframes sl-wash {
   0%,
   100% {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(2%, 1.5%, 0);
+    transform: translate3d(2%, 1.5%, 0) scale(1.06);
   }
+}
+
+@keyframes sl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: sl-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after,
   .live-dot,
   .sl-flow,
-  .sl-pulse {
+  .sl-pulse,
+  .rise {
     animation: none;
   }
   body::before {
     animation: none;
   }
-  .btn:active:not(:disabled) {
+  .btn:active:not(:disabled),
+  .lift:hover {
     transform: none;
   }
 
@@ -322,8 +401,6 @@ pre, code {
   .sl-drift:nth-of-type(4) {
     transform: translateX(146px);
   }
-
-  /* Give the inbound streams a visible static form too. */
   .sl-flow {
     stroke-dasharray: 6 10;
     opacity: 0.5;

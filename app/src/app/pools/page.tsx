@@ -5,6 +5,7 @@ import { useMemo } from "react";
 
 import { NoVaults, NotDeployed } from "@/components/Empty";
 import { Badge, LiveBadge, PairAvatar, SectionHeading, StatBar } from "@/components/ui";
+import { MiniMeter } from "@/components/viz";
 import { useVaults, type VaultSummary } from "@/hooks/useVaults";
 import { formatPercent, formatUsdCompact, shortAddress } from "@/lib/format";
 
@@ -113,15 +114,21 @@ export default function PoolsPage() {
                         </Link>
                       </td>
                       <Td>{formatUsdCompact(v.tvlUsdc)}</Td>
-                      <Td>
+                      <td className="px-4 py-3.5 text-right">
                         {v.rewardRate > 0n ? (
-                          <span className="font-semibold text-[var(--color-up)]">
-                            {formatPercent(v.aprPercent)}
-                          </span>
+                          <div className="ml-auto w-24">
+                            <div className="num text-sm font-semibold text-[var(--color-up)]">
+                              {formatPercent(v.aprPercent)}
+                            </div>
+                            <div className="mt-1.5">
+                              {/* Capped at 50% so one hot pool does not flatten every other bar. */}
+                              <MiniMeter pct={(v.aprPercent / 50) * 100} tone="up" />
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-[var(--color-dim)]">—</span>
+                          <span className="num text-sm text-[var(--color-dim)]">—</span>
                         )}
-                      </Td>
+                      </td>
                       <Td muted>{formatUsdCompact(v.pendingCompound)}</Td>
                       <Td muted>{(v.streamBps / 100).toFixed(0)}% stream</Td>
                       <td className="px-4 py-3.5 text-right">

@@ -43,6 +43,7 @@ contract ProtocolFeesTest is Test {
     address owner = makeAddr("owner");
     address treasury = makeAddr("treasury");
     address alice = makeAddr("alice");
+    address bob = makeAddr("bob");
 
     function setUp() public {
         manager = IPoolManager(address(new PoolManager(owner)));
@@ -144,6 +145,91 @@ contract ProtocolFeesTest is Test {
         // And once the treasury is unblocked, the accrual is still there to collect.
         usdc.setBlocked(treasury, false);
         assertGt(vault.collectProtocolFees(), 0, "accrued fees lost while the treasury was blocked");
+    }
+
+    // --- entry fee ---
+
+    /// @notice The entry fee is a haircut on principal, taken before anything is deployed.
+    function test_entryFeeIsChargedOnPrincipal() public {
+        uint16 bps = vault.depositFeeBps();
+        assertEq(bps, 500, "expected a 5% default entry fee");
+
+        uint256 usdcIn = 10_000e6;
+        uint256 tokenIn = 10_000e18;
+        uint256 expected0 = (usdcIn * bps) / 10_000;
+        uint256 expected1 = (tokenIn * bps) / 10_000;
+
+        uint256 before0 = vault.pendingDepositFees0();
+        uint256 before1 = vault.pendingDepositFees1();
+
+        vm.prank(alice);
+        vault.deposit(usdcIn, tokenIn, 0, alice);
+
+        assertEq(vault.pendingDepositFees0() - before0, expected0, "usdc fee not accrued");
+        assertEq(vault.pendingDepositFees1() - before1, expected1, "token fee not accrued");
+    }
+
+    /// @notice Two depositors of the same size get the same shares — the fee is proportional.
+    function test_entryFeeDoesNotDistortShareAccounting() public {
+        vm.prank(alice);
+        uint256 first = vault.deposit(10_000e6, 10_000e18, 0, alice);
+
+        usdc.mint(bob, 10_000e6);
+        token.mint(bob, 10_000e18);
+        vm.startPrank(bob);
+        usdc.approve(address(vault), type(uint256).max);
+        token.approve(address(vault), type(uint256).max);
+        uint256 second = vault.deposit(10_000e6, 10_000e18, 0, bob);
+        vm.stopPrank();
+
+        assertApproxEqRel(second, first, 0.001e18, "equal deposits produced unequal shares");
+    }
+
+    /// @notice Entry fees are collectible, and go only to the configured recipient.
+    function test_entryFeesAreCollectible() public {
+        vm.prank(owner);
+        vault.setDepositFee(500, treasury);
+
+        vm.prank(alice);
+        vault.deposit(10_000e6, 10_000e18, 0, alice);
+
+        uint256 pending0 = vault.pendingDepositFees0();
+        assertGt(pending0, 0, "nothing accrued");
+
+        uint256 before = usdc.balanceOf(treasury);
+        (uint256 got0,) = vault.collectDepositFees();
+
+        assertEq(got0, pending0, "collected a different amount than accrued");
+        assertEq(usdc.balanceOf(treasury) - before, pending0, "recipient not paid");
+        assertEq(vault.pendingDepositFees0(), 0, "accrual not cleared");
+    }
+
+    /// @notice The same freeze test as the treasury, on the deposit path.
+    /// @dev Pushing the entry fee inline would let a blocklisted recipient stop every deposit.
+    ///      This is the regression: the bug was fixed once for harvest, then reintroduced by the
+    ///      entry fee, and caught here.
+    function test_blocklistedFeeRecipientCannotBlockDeposits() public {
+        vm.prank(owner);
+        vault.setDepositFee(500, treasury);
+        usdc.setBlocked(treasury, true);
+
+        vm.prank(alice);
+        uint256 shares = vault.deposit(10_000e6, 10_000e18, 0, alice);
+        assertGt(shares, 0, "a blocklisted fee recipient blocked a deposit");
+
+        // Only the recipient's own collection fails.
+        vm.expectRevert(abi.encodeWithSelector(BlocklistERC20.Blocklisted.selector, treasury));
+        vault.collectDepositFees();
+    }
+
+    function test_entryFeeIsCappedAndOwnerOnly() public {
+        vm.prank(owner);
+        vm.expectRevert(LiquidityVault.ParameterOutOfRange.selector);
+        vault.setDepositFee(1_001, treasury);
+
+        vm.prank(alice);
+        vm.expectRevert(LiquidityVault.NotOwner.selector);
+        vault.setDepositFee(0, alice);
     }
 
     /// @notice A blocklisted staker is their own problem, never anyone else's.

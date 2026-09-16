@@ -3,7 +3,7 @@ import type { Address } from "viem";
 import { arc, arcTestnet } from "./chain";
 
 /**
- * Known Sluice deployments, by chain id.
+ * Known Slice deployments, by chain id.
  *
  * Kept in source rather than only in environment variables so the app is correct by default
  * wherever it is hosted. `NEXT_PUBLIC_FACTORY_ADDRESS` still overrides, which is what you want

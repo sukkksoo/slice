@@ -1,19 +1,19 @@
 import { A, Callout, H2, LI, P, Strong, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "What Sluice is — Sluice on Arc" };
+export const metadata = { title: "What Slice is — Slice on Arc" };
 
 export default function DocsIndex() {
   return (
     <>
-      <DocHeader kicker="Docs" title="What Sluice is" />
+      <DocHeader kicker="Docs" title="What Slice is" />
       <P>
-        Sluice is a liquidity layer for <A href="https://www.arc.io/">Arc</A>. It does two things,
+        Slice is a liquidity layer for <A href="https://www.arc.io/">Arc</A>. It does two things,
         for two different groups of people, on top of the same piece of machinery.
       </P>
       <H2>For people holding tokens</H2>
       <P>
         Providing liquidity on a DEX earns you a cut of trading fees, but it is fiddly: you pick a
-        price range, you hold a non-fungible position, you remember to collect. Sluice wraps all of
+        price range, you hold a non-fungible position, you remember to collect. Slice wraps all of
         that. You deposit into a pool&apos;s vault, you get fungible shares, and the fees that pool
         earns arrive as USDC.
       </P>
@@ -25,7 +25,7 @@ export default function DocsIndex() {
       <H2>For people launching tokens</H2>
       <P>
         A token with thin liquidity trades badly, and deepening it by hand means remembering to do
-        it. Sluice lets you point a <Strong>fee router</Strong> at your pool, fund it with USDC, and
+        it. Slice lets you point a <Strong>fee router</Strong> at your pool, fund it with USDC, and
         have it deploy that budget into liquidity automatically — on a timer, or as the token
         crosses market-cap milestones you pick in advance.
       </P>
@@ -38,7 +38,7 @@ export default function DocsIndex() {
       <UL>
         <LI>
           <Strong>Uniswap v4</Strong> — every vault owns one full-range position in a real Uniswap
-          pool. Sluice does not run its own AMM.
+          pool. Slice does not run its own AMM.
         </LI>
         <LI>
           <Strong>Arc</Strong> — Circle&apos;s stablecoin-native L1, where gas is paid in USDC and

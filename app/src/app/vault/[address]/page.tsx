@@ -7,6 +7,7 @@ import { maxUint256, parseUnits } from "viem";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import { LiveBadge, PairAvatar, Stat } from "@/components/ui";
+import { CompositionBar, FeeSplitBar, StreamRing } from "@/components/viz";
 import { targetChain } from "@/lib/chain";
 import { ARC, erc20Abi, vaultAbi } from "@/lib/contracts";
 import {
@@ -47,6 +48,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
       { address: vault, abi: vaultAbi, functionName: "pendingProtocolFees" },
       { address: vault, abi: vaultAbi, functionName: "streamBps" },
       { address: vault, abi: vaultAbi, functionName: "protocolFeeBps" },
+      { address: vault, abi: vaultAbi, functionName: "depositFeeBps" },
       { address: vault, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
       { address: vault, abi: vaultAbi, functionName: "earned", args: [holder] },
       { address: ARC.USDC, abi: erc20Abi, functionName: "balanceOf", args: [holder] },
@@ -73,12 +75,13 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   const pendingProtocolFees = val<bigint>(9, 0n);
   const streamBps = Number(val<bigint | number>(10, 0));
   const protocolFeeBps = Number(val<bigint | number>(11, 0));
-  const userShares = val<bigint>(12, 0n);
-  const userEarned = val<bigint>(13, 0n);
+  const depositFeeBps = Number(val<bigint | number>(12, 0));
+  const userShares = val<bigint>(13, 0n);
+  const userEarned = val<bigint>(14, 0n);
   // The sentinel holder is the zero address, whose balances are real on-chain values (burn
   // address dust, and on Arc a large one). Never surface those as if they were the visitor's.
-  const usdcBalance = account ? val<bigint>(14, 0n) : 0n;
-  const usdcAllowance = account ? val<bigint>(15, 0n) : 0n;
+  const usdcBalance = account ? val<bigint>(15, 0n) : 0n;
+  const usdcAllowance = account ? val<bigint>(16, 0n) : 0n;
 
   const [oracleWarm, sqrtPriceX96] = prices;
 
@@ -211,7 +214,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
 
       <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
         <section className="panel-raised p-6">
-          <div className="inline-flex rounded-xl bg-[var(--color-bg)] p-1">
+          <div className="inline-flex rounded-xl bg-[var(--color-surface-3)] p-1">
             {(["usdc", "pair"] as Mode[]).map((m) => (
               <button
                 key={m}
@@ -219,7 +222,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
                 onClick={() => setMode(m)}
                 className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
                   mode === m
-                    ? "bg-[var(--color-surface-3)] text-[var(--color-text)]"
+                    ? "bg-[var(--color-surface)] text-[var(--color-accent-deep)] shadow-[var(--shadow-sm)]"
                     : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
                 }`}
               >
@@ -254,6 +257,40 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
               />
             )}
           </div>
+
+          {/* A 5% cut of principal is the sort of thing a person should see before they sign, not
+              afterwards on a block explorer. Shown whenever there is an amount to apply it to. */}
+          {depositFeeBps > 0 && (
+            <dl className="mt-5 space-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-3">
+              <div className="flex items-baseline justify-between text-[13px]">
+                <dt className="text-[var(--color-muted)]">
+                  Entry fee
+                  <span className="ml-1.5 num text-[var(--color-text)]">
+                    {(depositFeeBps / 100).toFixed(1)}%
+                  </span>
+                </dt>
+                <dd className="num text-[var(--color-text)]">
+                  {usdcAmount > 0n
+                    ? `−${formatUsd((usdcAmount * BigInt(depositFeeBps)) / 10_000n)}`
+                    : "—"}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between border-t border-[var(--color-border)] pt-2 text-[13px]">
+                <dt className="font-medium">Deployed into the pool</dt>
+                <dd className="num font-semibold">
+                  {usdcAmount > 0n
+                    ? formatUsd(usdcAmount - (usdcAmount * BigInt(depositFeeBps)) / 10_000n)
+                    : "—"}
+                </dd>
+              </div>
+              <p className="pt-1 text-[11px] leading-relaxed text-[var(--color-dim)]">
+                Taken from your principal, not from yield.{" "}
+                <Link href="/docs/fees" className="text-[var(--color-accent)] hover:underline">
+                  How fees work
+                </Link>
+              </p>
+            </dl>
+          )}
 
           <div className="mt-5">
             {needsUsdcApproval ? (
@@ -320,6 +357,37 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
               />
             </div>
           </div>
+        </section>
+      </div>
+
+      {/* --- what the vault is made of, and where its fees go --- */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="panel p-6">
+          <h2 className="text-[15px] font-semibold">Pool composition</h2>
+          <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">
+            A full-range position rebalances with the price, so this moves as the token does.
+          </p>
+          <div className="mt-5">
+            <CompositionBar
+              usdcValue={tvl.usdc}
+              assetValue={tvl.total > tvl.usdc ? tvl.total - tvl.usdc : 0n}
+              symbol={assetSymbol}
+            />
+          </div>
+        </section>
+
+        <section className="panel p-6">
+          <h2 className="text-[15px] font-semibold">Where each harvest goes</h2>
+          <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">
+            Set per vault, readable on-chain.
+          </p>
+          <div className="mt-5">
+            <FeeSplitBar protocolFeeBps={protocolFeeBps} streamBps={streamBps} />
+          </div>
+        </section>
+
+        <section className="panel p-6">
+          <StreamRing periodFinish={periodFinish} durationSeconds={7 * 24 * 3600} />
         </section>
       </div>
 

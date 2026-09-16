@@ -24,13 +24,13 @@ export function TokenAvatar({
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-black/80"
+      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-white"
       style={{
         width: size,
         height: size,
         fontSize: size * (initials.length > 2 ? 0.3 : 0.36),
-        background: `linear-gradient(135deg, hsl(${hue} 70% 62%), hsl(${hue2} 65% 45%))`,
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.08) inset, 0 2px 10px -3px hsl(${hue} 70% 40% / 0.6)`,
+        background: `linear-gradient(135deg, hsl(${hue} 72% 58%), hsl(${hue2} 68% 44%))`,
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.35) inset, 0 3px 10px -3px hsl(${hue} 70% 45% / 0.5)`,
       }}
     >
       {initials}
@@ -45,7 +45,7 @@ export function PairAvatar({ address, symbol }: { address: string; symbol: strin
       <TokenAvatar address={address} symbol={symbol} size={34} />
       <span
         aria-hidden
-        className="-ml-3 inline-grid size-[26px] place-items-center rounded-full bg-[#2775CA] text-[9px] font-bold text-white ring-2 ring-[var(--color-bg)]"
+        className="-ml-3 inline-grid size-[26px] place-items-center rounded-full bg-[#2775CA] text-[9px] font-bold text-white ring-2 ring-[var(--color-surface)]"
         title="USDC"
       >
         $
@@ -122,10 +122,10 @@ export function Badge({
 }) {
   const map = {
     neutral: "bg-[var(--color-surface-3)] text-[var(--color-muted)]",
-    up: "bg-[var(--color-accent-dim)] text-[var(--color-up)]",
-    down: "bg-[#2a1416] text-[var(--color-down)]",
+    up: "bg-[var(--color-up-dim)] text-[var(--color-up)]",
+    down: "bg-[#fde7ea] text-[var(--color-down)]",
     warn: "bg-[var(--color-warn-dim)] text-[var(--color-warn)]",
-    accent: "bg-[var(--color-accent-dim)] text-[var(--color-accent)]",
+    accent: "bg-[var(--color-accent-dim)] text-[var(--color-accent-deep)]",
   } as const;
 
   return (

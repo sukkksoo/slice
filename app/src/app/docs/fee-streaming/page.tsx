@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, LI, P, Pre, Strong, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "The fee stream — Sluice on Arc" };
+export const metadata = { title: "The fee stream — Slice on Arc" };
 
 const ATTACK = `block N     attacker deposits a large amount
 block N+1   attacker calls harvest() — a week of fees lands in NAV

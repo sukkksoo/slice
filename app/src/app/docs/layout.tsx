@@ -8,7 +8,7 @@ const SECTIONS = [
   {
     title: "Start here",
     links: [
-      { href: "/docs", label: "What Sluice is" },
+      { href: "/docs", label: "What Slice is" },
       { href: "/docs/how-it-works", label: "How it works" },
     ],
   },
@@ -17,6 +17,7 @@ const SECTIONS = [
     links: [
       { href: "/docs/staking", label: "Staking liquidity" },
       { href: "/docs/fee-streaming", label: "The fee stream" },
+      { href: "/docs/fees", label: "Fees" },
       { href: "/docs/risks", label: "Risks" },
     ],
   },

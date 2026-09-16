@@ -26,11 +26,11 @@ export function Nav() {
   const wrongChain = isConnected && chainId !== targetChain.id;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-bg)_82%,transparent)] backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.72)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-5 py-3.5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <Logo size={32} />
-          <span className="hidden text-[15px] font-semibold tracking-[-0.01em] sm:block">Sluice</span>
+          <span className="hidden text-[15px] font-semibold tracking-[-0.01em] sm:block">Slice</span>
         </Link>
 
         <nav className="flex items-center gap-0.5">
@@ -43,7 +43,7 @@ export function Nav() {
                 href={tab.href}
                 className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
                   active
-                    ? "bg-[var(--color-surface-3)] text-[var(--color-text)]"
+                    ? "bg-[var(--color-accent-dim)] text-[var(--color-accent-deep)]"
                     : "text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"
                 }`}
               >
@@ -55,7 +55,7 @@ export function Nav() {
 
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden items-center gap-1.5 rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[11px] text-[var(--color-muted)] md:inline-flex">
-            <span className="live-dot size-1.5 rounded-full bg-[var(--color-accent)]" />
+            <span className="live-dot size-1.5 rounded-full bg-[var(--color-up)]" />
             {targetChain.name}
           </span>
 

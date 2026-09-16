@@ -33,7 +33,7 @@ echo "usdc:     $(cast call $USDC 'balanceOf(address)(uint256)' "$ME" --rpc-url 
 
 echo "--- deploying test token + swap router ---"
 DTT=$(forge create script/mocks/TestToken.sol:TestToken --rpc-url "$T" --private-key "$PK" \
-  --broadcast --constructor-args "Sluice Test Token" "DTT" | grep "Deployed to:" | awk '{print $3}')
+  --broadcast --constructor-args "Slice Test Token" "DTT" | grep "Deployed to:" | awk '{print $3}')
 SWAP=$(forge create lib/v4-periphery/lib/v4-core/src/test/PoolSwapTest.sol:PoolSwapTest \
   --rpc-url "$T" --private-key "$PK" --broadcast --constructor-args $PM \
   | grep "Deployed to:" | awk '{print $3}')

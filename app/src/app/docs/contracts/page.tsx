@@ -31,7 +31,7 @@ export default function Contracts() {
         Everything is deployed permissionlessly and verifiable on-chain. Currently targeting{" "}
         <Strong>{targetChain.name}</Strong> (chain {targetChain.id}).
       </P>
-      <H2 id="delta">Sluice contracts</H2>
+      <H2 id="delta">Slice contracts</H2>
       <Table
         head={["Contract", "Address", "Role"]}
         rows={[
@@ -63,11 +63,11 @@ export default function Contracts() {
 
       <H2 id="arc">Arc and Uniswap</H2>
       <P>
-        Sluice only ever calls two of these at runtime: the Uniswap <Code>PoolManager</Code> and the
+        Slice only ever calls two of these at runtime: the Uniswap <Code>PoolManager</Code> and the
         USDC ERC-20 interface. Both carry identical bytecode on Arc mainnet and testnet.
       </P>
       <Table
-        head={["Contract", "Address", "Used by Sluice"]}
+        head={["Contract", "Address", "Used by Slice"]}
         rows={[
           [
             <Strong key="a">USDC (ERC-20)</Strong>,

@@ -46,7 +46,7 @@ export function LI({ children }: { children: ReactNode }) {
 
 export function Code({ children }: { children: ReactNode }) {
   return (
-    <code className="mono rounded-md bg-[var(--color-surface-3)] px-1.5 py-0.5 text-[13px] text-[var(--color-text)]">
+    <code className="mono rounded-md bg-[var(--color-accent-dim)] px-1.5 py-0.5 text-[13px] text-[var(--color-accent-deep)]">
       {children}
     </code>
   );
@@ -54,7 +54,7 @@ export function Code({ children }: { children: ReactNode }) {
 
 export function Pre({ children }: { children: ReactNode }) {
   return (
-    <pre className="mono mt-5 overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-5 py-4 text-[12.5px] leading-[1.7] text-[var(--color-muted)]">
+    <pre className="mono mt-5 overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-5 py-4 text-[12.5px] leading-[1.7] text-[var(--color-muted)]">
       {children}
     </pre>
   );

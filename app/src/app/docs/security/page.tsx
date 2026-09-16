@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, H3, LI, P, Strong, Table, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Security model — Sluice on Arc" };
+export const metadata = { title: "Security model — Slice on Arc" };
 
 export default function Security() {
   return (
@@ -112,7 +112,7 @@ export default function Security() {
           <Strong>A blocklisted vault.</Strong> Unrecoverable, and no contract design prevents it.
         </LI>
         <LI>
-          <Strong>Chain or Uniswap failure.</Strong> Outside anything Sluice can control.
+          <Strong>Chain or Uniswap failure.</Strong> Outside anything Slice can control.
         </LI>
       </UL>
     </>

@@ -11,7 +11,7 @@ function Shell({
 }) {
   return (
     <div className="panel-raised px-6 py-14 text-center">
-      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--color-surface-3)] text-xl">
+      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--color-accent-dim)] text-xl">
         {icon}
       </div>
       <h2 className="mt-5 text-lg font-semibold">{title}</h2>
@@ -32,7 +32,7 @@ export function NotDeployed() {
         </code>
         . Until then there is nothing on-chain to read.
       </p>
-      <pre className="mono mt-5 overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3.5 text-left text-xs text-[var(--color-dim)]">
+      <pre className="mono mt-5 overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-3.5 text-left text-xs text-[var(--color-muted)]">
         {`cd contracts\nforge script script/Deploy.s.sol \\\n  --rpc-url $ARC_RPC_URL --broadcast`}
       </pre>
     </Shell>

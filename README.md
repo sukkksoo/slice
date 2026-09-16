@@ -1,4 +1,4 @@
-# Sluice on Arc
+# Slice on Arc
 
 Liquidity infrastructure for [Arc](https://www.arc.io/) (chain `5042`): LP staking with streamed
 fee yield, and creator-configurable automatic liquidity injection. Built on Uniswap v4.
@@ -229,8 +229,16 @@ Checked on mainnet at block 21,172,821:
 - **The oracle needs warming.** Automated swaps require a 30-minute TWAP window. Until it fills,
   harvest defers the token-side conversion rather than reverting — deposits and withdrawals keep
   working — but `depositUsdc` and `compound` revert.
-- **`VaultDeployer` has 1,898 bytes of headroom.** Any material growth in `LiquidityVault` will
-  push it over EIP-170. Check `forge build --sizes` before shipping changes.
+- **`VaultDeployer` has 1,425 bytes of headroom, and this is now the binding constraint.**
+  It embeds the vault's entire creation bytecode, so every feature added to `LiquidityVault` eats
+  into a fixed 24,576-byte budget. The entry fee alone cost 1,512 bytes; `PoolOracle` was moved to
+  an externally linked library to claw some back, and the optimizer runs to 200. Neither is a fix —
+  the structural answer is EIP-1167 minimal proxies, which decouples vault size from deployment
+  entirely but requires converting the immutables to storage behind an initializer. Do that before
+  adding anything else to the vault, and check `forge build --sizes` on every change until then.
+- **There is a 5% entry fee**, taken from principal on deposit and sent to `feeRecipient`. It is
+  documented at `/docs/fees`, surfaced in the deposit panel, capped at 10% in the contract, and
+  readable on-chain via `depositFeeBps()`.
 - **A blocklisted vault is unrecoverable.** The pull-based fee design protects against a blocked
   *treasury* or *staker*, but if Circle blocklists a vault address itself, that vault's funds are
   frozen. Nothing on-chain can defend against this; it is inherent to building on Arc's USDC.

@@ -1,6 +1,6 @@
 import { A, Callout, Code, H2, LI, P, Strong, UL, DocHeader } from "@/components/Prose";
 
-export const metadata = { title: "Risks — Sluice on Arc" };
+export const metadata = { title: "Risks — Slice on Arc" };
 
 export default function Risks() {
   return (
@@ -13,6 +13,17 @@ export default function Risks() {
         now clean. Do not deposit money you cannot afford to lose.
       </Callout>
 
+      <H2 id="entry-fee">The entry fee comes out of your principal</H2>
+      <P>
+        Depositing costs <Strong>5% of what you supply</Strong>, taken before any liquidity is
+        added. It is not a share of yield — it reduces your stake up front, and you have to earn it
+        back in streamed fees before you are level with not having deposited.
+      </P>
+      <P>
+        This is the most certain cost on this page: impermanent loss is a risk, the entry fee is a
+        charge. <A href="/docs/fees">Full fee breakdown →</A>
+      </P>
+
       <H2 id="il">Impermanent loss</H2>
       <P>
         Your shares track a Uniswap position, so they behave like one. If the token&apos;s price
@@ -20,14 +31,14 @@ export default function Risks() {
         you had simply held the two assets separately. Fees offset this; they do not cancel it.
       </P>
       <P>
-        This is not a flaw in Sluice — it is what providing liquidity is. But it is the risk most
+        This is not a flaw in Slice — it is what providing liquidity is. But it is the risk most
         likely to actually cost you money, and it is larger for volatile tokens than the fee yield
         usually looks.
       </P>
 
       <H2 id="blocklist">USDC can be frozen</H2>
       <P>
-        Arc&apos;s USDC consults a compliance blocklist on every transfer, and Circle — not Sluice,
+        Arc&apos;s USDC consults a compliance blocklist on every transfer, and Circle — not Slice,
         not you — decides who is on it. The protocol is built so that a blocked{" "}
         <Strong>treasury</Strong> or a blocked <Strong>staker</Strong> cannot affect anyone else:
         protocol fees are pulled rather than pushed, and payouts only ever go to the address the
@@ -91,8 +102,8 @@ export default function Risks() {
 
       <H2 id="chain">Chain and dependency risk</H2>
       <P>
-        Sluice sits on Uniswap v4 and on Arc. A critical bug in either, or a chain-level failure,
-        affects Sluice regardless of how correct Sluice&apos;s own code is.
+        Slice sits on Uniswap v4 and on Arc. A critical bug in either, or a chain-level failure,
+        affects Slice regardless of how correct Slice&apos;s own code is.
       </P>
     </>
   );

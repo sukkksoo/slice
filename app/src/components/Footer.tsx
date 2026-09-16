@@ -17,9 +17,10 @@ const GROUPS = [
   {
     title: "Learn",
     links: [
-      { href: "/docs", label: "What Sluice is" },
+      { href: "/docs", label: "What Slice is" },
       { href: "/docs/how-it-works", label: "How it works" },
       { href: "/docs/fee-streaming", label: "The fee stream" },
+      { href: "/docs/fees", label: "Fees" },
       { href: "/docs/creator-routing", label: "Fee routing" },
     ],
   },
@@ -42,7 +43,7 @@ export function Footer() {
           <div>
             <div className="flex items-center gap-2.5">
               <Logo size={28} />
-              <span className="text-sm font-semibold">Sluice</span>
+              <span className="text-sm font-semibold">Slice</span>
             </div>
             <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-[var(--color-muted)]">
               Liquidity infrastructure for Arc. Stake liquidity and earn streamed fees, or route
