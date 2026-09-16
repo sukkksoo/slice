@@ -36,6 +36,11 @@ export default function PoolsPage() {
       <SectionHeading
         title="Pools"
         subtitle="Every vault holds one full-range Uniswap v4 position. Swap fees are harvested, converted to USDC, and streamed to stakers over seven days — so arriving right after a busy hour earns you nothing you did not provide liquidity for."
+        action={
+          <Link href="/pools/new" className="btn btn-ghost">
+            List a pool
+          </Link>
+        }
       />
 
       <div className="panel px-6 py-5">

@@ -104,6 +104,14 @@ export default function Contracts() {
         USDC, a vault can be created for it permissionlessly. On Arc that covers most launchpads,
         because v4 plus USDC is the default shape.
       </P>
+      <Callout tone="good" title="There is no allowlist">
+        <Code>createVault</Code> carries no access control, so anyone can list any qualifying pool
+        and anyone can then stake in it —{" "}
+        <A href="/pools/new">list one from the app</A> if the pool you want is not already there.
+        Listing a pool gives the lister no rights over the resulting vault: owner, treasury and fee
+        recipient are set by the factory, identically for every vault it creates. The four
+        requirements below are enforced in the vault&apos;s constructor, not by a reviewer.
+      </Callout>
       <Table
         head={["Requirement", "Why"]}
         rows={[
