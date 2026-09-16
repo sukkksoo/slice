@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
-import { useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  useBalance,
+  useReadContract,
+  useSimulateContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 
 import { ConnectPrompt, NotDeployed } from "@/components/Empty";
 import {
@@ -316,8 +322,27 @@ function PositionCard({
     args: [v.userShares],
     query: { enabled: v.userShares > 0n, refetchInterval: 15_000 },
   });
-  const [a0, a1] = (redeem.data as [bigint, bigint] | undefined) ?? [0n, 0n];
-  const quoted = redeem.isSuccess && (a0 > 0n || a1 > 0n);
+  const [p0, p1] = (redeem.data as [bigint, bigint] | undefined) ?? [0n, 0n];
+
+  // `previewRedeem` values the position at the current price, but `withdraw` harvests on the way
+  // in and a harvest swaps — moving the very price the preview was taken at. Ask the chain what
+  // the call returns instead, the same way the vault page does, so the floor is set against the
+  // real number rather than one taken a moment before the call changes it.
+  const exit = useSimulateContract({
+    chainId: targetChain.id,
+    address: v.address,
+    abi: vaultAbi,
+    functionName: "withdraw",
+    args: [v.userShares, 0n, 0n, account],
+    account,
+    query: { enabled: v.userShares > 0n && !guard.wrongChain, retry: false, refetchOnWindowFocus: false },
+  });
+  const quotedExit = Array.isArray(exit.data?.result)
+    ? (exit.data.result as readonly [bigint, bigint])
+    : undefined;
+
+  const [a0, a1] = quotedExit ?? [p0, p1];
+  const quoted = (redeem.isSuccess || quotedExit !== undefined) && (a0 > 0n || a1 > 0n);
 
   const value = v.totalSupply === 0n ? 0n : (v.tvlUsdc * v.userShares) / v.totalSupply;
   const share = v.totalSupply > 0n ? Number((v.userShares * 1_000_000n) / v.totalSupply) / 10_000 : 0;
