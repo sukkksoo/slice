@@ -31,7 +31,7 @@ export default function Contracts() {
         Everything is deployed permissionlessly and verifiable on-chain. Currently targeting{" "}
         <Strong>{targetChain.name}</Strong> (chain {targetChain.id}).
       </P>
-      <H2 id="delta">Slice contracts</H2>
+      <H2 id="contracts">Slice contracts</H2>
       <Table
         head={["Contract", "Address", "Role"]}
         rows={[
