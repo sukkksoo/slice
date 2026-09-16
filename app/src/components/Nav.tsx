@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from "wagmi";
 
-import { arc } from "@/lib/chain";
+import { targetChain } from "@/lib/wagmi";
 import { shortAddress } from "@/lib/format";
 
 const TABS = [
@@ -21,7 +21,7 @@ export function Nav() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
 
-  const wrongChain = isConnected && chainId !== arc.id;
+  const wrongChain = isConnected && chainId !== targetChain.id;
 
   return (
     <header className="border-b border-[var(--color-border)]">
@@ -31,7 +31,7 @@ export function Nav() {
             Δ
           </span>
           <span className="text-sm font-semibold tracking-tight">
-            Delta <span className="text-[var(--color-muted)]">on Arc</span>
+            Delta <span className="text-[var(--color-muted)]">on {targetChain.name}</span>
           </span>
         </Link>
 
@@ -58,10 +58,10 @@ export function Nav() {
           {wrongChain && (
             <button
               type="button"
-              onClick={() => switchChain({ chainId: arc.id })}
+              onClick={() => switchChain({ chainId: targetChain.id })}
               className="rounded border border-[var(--color-warn)] px-3 py-1.5 text-xs text-[var(--color-warn)]"
             >
-              Switch to Arc
+              {`Switch to ${targetChain.name}`}
             </button>
           )}
 
