@@ -9,6 +9,9 @@ and streamed over seven days.
 **For token creators** — route any configurable share of trading fees, or a manually funded USDC
 budget, into pool liquidity automatically on-chain, on a schedule or at market-cap milestones.
 
+**Live on Arc testnet** — app at [delta-arc](https://delta-arc-sukiransandu-9022s-projects.vercel.app),
+factory at `0x28e745eBf4b8E8b758c7B4a11b2e453322cDC3CA` (chain 5042002).
+
 > **Unaudited.** Deployed contracts hold user funds. Do not put real money in this without an
 > audit. See [Known limitations](#known-limitations).
 
@@ -237,4 +240,8 @@ Checked on mainnet at block 21,172,821:
 - **No indexer.** The dashboard reads the factory registry and vault state directly over RPC. It
   does not show historical fee charts or 24h volume, which would need an indexer Arc does not yet
   have.
+- **`forge script` cannot touch USDC on Arc.** It runs the script locally to collect transactions
+  before broadcasting, and Arc's USDC depends on chain precompiles that Foundry's EVM does not
+  implement. Anything that moves USDC has to be driven with `cast`, which estimates against the
+  real node — see `script/seed-testnet.sh`.
 - **Governance is a single owner key** per vault, set at creation. Use a multisig.
