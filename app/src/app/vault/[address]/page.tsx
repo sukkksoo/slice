@@ -5,6 +5,7 @@ import { use, useCallback, useMemo, useState } from "react";
 import type { Address } from "viem";
 import { parseUnits, zeroAddress } from "viem";
 import {
+  usePublicClient,
   useReadContracts,
   useSimulateContract,
   useWaitForTransactionReceipt,
@@ -277,6 +278,9 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
       // A revert is an answer, not a transport failure worth hammering the node over.
       retry: false,
       refetchOnWindowFocus: false,
+      // The number on screen has to keep tracking the pool. Without this it is fetched once, when
+      // the inputs change, and then sits there going stale while the person reads the panel.
+      refetchInterval: 10_000,
     },
   });
 
@@ -350,9 +354,14 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
 
   // --- transactions ---
 
+  const client = usePublicClient({ chainId: targetChain.id });
+  // A failure found by the click-time simulation, which never reaches the wallet.
+  const [preflightError, setPreflightError] = useState<unknown>(null);
+  const [preflighting, setPreflighting] = useState(false);
+
   const { writeContract, data: txHash, isPending, error: writeError, reset } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: txHash });
-  const busy = isPending || receipt.isLoading;
+  const busy = isPending || receipt.isLoading || preflighting;
   const { watchAsset } = useWatchAsset();
 
   const refresh = useCallback(() => {
@@ -388,34 +397,83 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
       writeContract({ address: token, abi: erc20Abi, functionName: "approve", args: [vault, amount] }),
     );
 
-  const deposit = () =>
-    send("deposit", () => {
-      if (mode === "usdc") {
-        writeContract({
-          address: vault,
-          abi: vaultAbi,
-          functionName: "depositUsdc",
-          args: [usdcAmount, minShares, holder],
-        });
-        return;
-      }
-      const [a0, a1] = usdcIsCurrency0 ? [usdcAmount, assetAmount] : [assetAmount, usdcAmount];
+  /**
+   * Quote the call again at the moment of the click, and take the floor from *that*.
+   *
+   * The quote above is fetched when the inputs change. That is fine for showing a number and
+   * useless for setting a floor, because the gap between the two is however long the person takes
+   * — and on this path it is never short: the quote cannot run until USDC is approved, so the
+   * sequence is always type, approve (a whole transaction), then stake. On a token moving a
+   * couple of percent a minute, the floor was being derived from a price that had already gone.
+   *
+   * That is exactly what reverted on CINU: the panel quoted 0.00006342 and insisted on 0.0000631,
+   * and by the time the transaction ran the call returned 0.0000620. Nothing was wrong with the
+   * vault, the hook or the band — the floor was simply a minute old.
+   *
+   * Re-simulating here shrinks that gap to about one block, which is what a 0.5% tolerance is
+   * actually sized to absorb. It also means a call that cannot succeed is caught before the
+   * wallet ever opens, rather than costing gas to find out.
+   */
+  const preflightThenSend = async (
+    action: LastAction,
+    functionName: string,
+    zeroFloorArgs: readonly unknown[],
+    withFloor: (result: never) => readonly unknown[],
+  ) => {
+    if (!client || !account) return;
+    setPreflightError(null);
+    setPreflighting(true);
+    try {
+      const sim = await client.simulateContract({
+        address: vault,
+        abi: vaultAbi,
+        functionName,
+        args: zeroFloorArgs,
+        account,
+      } as never);
+      reset();
+      setPreflightError(null);
+      setLastAction(action);
       writeContract({
         address: vault,
         abi: vaultAbi,
-        functionName: "deposit",
-        args: [a0, a1, minShares, holder],
-      });
-    });
+        functionName,
+        args: withFloor((sim as { result: never }).result),
+      } as never);
+    } catch (e) {
+      setPreflightError(e);
+    } finally {
+      setPreflighting(false);
+    }
+  };
 
-  const withdraw = (shares: bigint, m0: bigint, m1: bigint) =>
-    send("withdraw", () =>
-      writeContract({
-        address: vault,
-        abi: vaultAbi,
-        functionName: "withdraw",
-        args: [shares, m0, m1, holder],
-      }),
+  const deposit = () => {
+    if (mode === "usdc") {
+      return preflightThenSend(
+        "deposit",
+        "depositUsdc",
+        [usdcAmount, 0n, holder],
+        (shares: never) => [usdcAmount, withSlippage(shares as bigint, bps), holder],
+      );
+    }
+    const [a0, a1] = usdcIsCurrency0 ? [usdcAmount, assetAmount] : [assetAmount, usdcAmount];
+    return preflightThenSend(
+      "deposit",
+      "deposit",
+      [a0, a1, 0n, holder],
+      (shares: never) => [a0, a1, withSlippage(shares as bigint, bps), holder],
+    );
+  };
+
+  const withdraw = (shares: bigint) =>
+    preflightThenSend(
+      "withdraw",
+      "withdraw",
+      [shares, 0n, 0n, holder],
+      (out: never) => {
+        const [o0, o1] = out as unknown as readonly [bigint, bigint];
+        return [shares, withSlippage(o0, bps), withSlippage(o1, bps), holder];
+      },
     );
 
   const call = (action: LastAction, fn: string) =>
@@ -590,8 +648,9 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
               </dd>
             </div>
             <p className="pt-1 text-[11px] leading-relaxed text-[var(--color-dim)]">
-              The minimum is written into the transaction. If the pool moves so you would get less,
-              it reverts and nothing is taken.{" "}
+              Re-quoted the moment you press Stake, so this figure is indicative and the one written
+              into the transaction is current. If the pool moves after that, it reverts and nothing
+              is taken.{" "}
               <Link href="/docs/fees" className="text-[var(--color-accent)] hover:underline">
                 How fees work
               </Link>
@@ -715,7 +774,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
                 guard={guard}
                 busy={busy}
                 disabled={!account || withdrawShares === 0n || withdrawShares > userShares}
-                onClick={() => withdraw(withdrawShares, min0, min1)}
+                onClick={() => withdraw(withdrawShares)}
                 label="Withdraw"
                 variant="ghost"
               />
@@ -723,13 +782,9 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
                 guard={guard}
                 busy={busy}
                 disabled={!account || userShares === 0n}
-                onClick={() => {
-                  // Exact share balance, not a string round-trip — so "all" means all.
-                  const [u, a] = [yours.usdc, yours.asset];
-                  const [p0, p1] = usdcIsCurrency0 ? [u, a] : [a, u];
-                  const [w0, w1] = quotedExit ?? [p0, p1];
-                  withdraw(userShares, withSlippage(w0, bps), withSlippage(w1, bps));
-                }}
+                // Exact share balance, not a string round-trip — so "all" means all. The floor
+                // comes from the simulation this runs, not from the figures on screen.
+                onClick={() => withdraw(userShares)}
                 label="Withdraw all"
                 variant="ghost"
               />
@@ -743,7 +798,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
         isPending={isPending}
         isConfirming={receipt.isLoading}
         isSuccess={receipt.isSuccess}
-        error={writeError}
+        error={preflightError ?? writeError}
         successLabel="Confirmed — the figures above have been refreshed."
       />
 
