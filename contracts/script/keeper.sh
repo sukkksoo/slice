@@ -62,6 +62,13 @@ MAX_EMPTY="${KEEPER_MAX_EMPTY:-3}"
 #
 #   KEEPER_ACCOUNT=slice-keeper KEEPER_PASSWORD=...  ./script/keeper.sh   # keystore
 #   PRIVATE_KEY=0x...                                ./script/keeper.sh   # raw key
+# A keystore sitting at the default name is almost certainly the one meant. Requiring it to be
+# named turns a machine that is already set up into "set PRIVATE_KEY, or KEEPER_ACCOUNT for a
+# keystore" — which reads as "paste your raw key", the opposite of what this script wants.
+if [ -z "${KEEPER_ACCOUNT:-}" ] && [ -z "${PRIVATE_KEY:-}" ] && [ -e "$HOME/.foundry/keystores/slice-keeper" ]; then
+  KEEPER_ACCOUNT=slice-keeper
+fi
+
 if [ -n "${KEEPER_ACCOUNT:-}" ]; then
   # Ask once, here, rather than making the caller paste a secret into a command line. A password
   # on the command line lands in shell history and in the process list, and a command with a
