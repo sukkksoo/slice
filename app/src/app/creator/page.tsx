@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
 import { decodeEventLog, isAddress, parseUnits, zeroAddress } from "viem";
-import { useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  usePublicClient,
+  useReadContracts,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 
 import { NotDeployed } from "@/components/Empty";
 import { Action, TxStatus, useAfterConfirm, useNetworkGuard } from "@/components/tx";
@@ -14,6 +19,7 @@ import { ARC, erc20Abi, FACTORY_ADDRESS, factoryAbi, routerAbi, onArc } from "@/
 import { formatUsd, shortAddress } from "@/lib/format";
 import { explorerAddress } from "@/lib/tx";
 import { targetChain } from "@/lib/chain";
+import { bufferedGas } from "@/lib/gas";
 
 const BURN = "0x000000000000000000000000000000000000dEaD" as Address;
 
@@ -40,6 +46,7 @@ const I_USER_ALLOWANCE = ROUTER_FIELDS.length + 1;
 export default function CreatorPage() {
   const guard = useNetworkGuard();
   const account = guard.account;
+  const client = usePublicClient({ chainId: targetChain.id });
   const { vaults, configured } = useVaults();
 
   const [selectedVault, setSelectedVault] = useState("");
@@ -116,9 +123,24 @@ export default function CreatorPage() {
   }, [reads]);
   useAfterConfirm(txHash, receipt.isSuccess, refresh);
 
-  const send = (fn: () => void) => {
+  const send = (fn: () => void | Promise<void>) => {
     reset();
-    fn();
+    void fn();
+  };
+
+  /**
+   * Every write on this page goes through here, so none of them ships with the wallet's own gas
+   * estimate — which on Arc carries about 0.1% of headroom and is not enough to survive the block
+   * it lands in. lib/gas.ts has the whole story; a withdrawal is what found it.
+   */
+  const write = async (params: {
+    address: Address;
+    abi: readonly unknown[];
+    functionName: string;
+    args?: readonly unknown[];
+  }) => {
+    const gas = account ? await bufferedGas(client, { ...params, account }) : undefined;
+    writeContract({ ...params, ...(gas === undefined ? {} : { gas }) } as never);
   };
 
   const percentBps = useMemo(() => {
@@ -144,7 +166,7 @@ export default function CreatorPage() {
 
   const createRouter = () =>
     send(() =>
-      writeContract({
+      write({
         address: FACTORY_ADDRESS as Address,
         abi: factoryAbi,
         functionName: "createRouter",
@@ -155,7 +177,7 @@ export default function CreatorPage() {
   const configureCadence = () => {
     if (!router || percentBps === null || minInjectionRaw === null) return;
     send(() =>
-      writeContract({
+      write({
         address: router,
         abi: routerAbi,
         functionName: "configureCadence",
@@ -177,7 +199,7 @@ export default function CreatorPage() {
       return;
     }
     send(() =>
-      writeContract({
+      write({
         address: router,
         abi: routerAbi,
         functionName: "configureMilestones",
@@ -189,7 +211,7 @@ export default function CreatorPage() {
   const approveFund = () =>
     router &&
     send(() =>
-      writeContract({
+      write({
         address: ARC.USDC,
         abi: erc20Abi,
         functionName: "approve",
@@ -199,15 +221,15 @@ export default function CreatorPage() {
   const fund = () =>
     router &&
     send(() =>
-      writeContract({ address: router, abi: routerAbi, functionName: "fund", args: [fundAmount] }),
+      write({ address: router, abi: routerAbi, functionName: "fund", args: [fundAmount] }),
     );
   const inject = () =>
-    router && send(() => writeContract({ address: router, abi: routerAbi, functionName: "inject" }));
+    router && send(() => write({ address: router, abi: routerAbi, functionName: "inject" }));
   const sweep = () =>
     router &&
     account &&
     send(() =>
-      writeContract({
+      write({
         address: router,
         abi: routerAbi,
         functionName: "sweep",

@@ -42,6 +42,7 @@ import {
   withSlippage,
   type PoolShape,
 } from "@/lib/preview";
+import { bufferedGas } from "@/lib/gas";
 import { describeError, explorerAddress } from "@/lib/tx";
 import { targetChain } from "@/lib/chain";
 
@@ -378,7 +379,7 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
   }, [reads, assetMeta, totalRedeem, userRedeem, lastAction]);
   useAfterConfirm(txHash, receipt.isSuccess, refresh);
 
-  const send = (action: LastAction, fn: () => void) => {
+  const send = (action: LastAction, fn: () => void | Promise<void>) => {
     reset();
     setLastAction(action);
     fn();
@@ -393,9 +394,19 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     Boolean(account) && mode === "pair" && assetAmount > 0n && assetAllowance < assetAmount;
 
   const approve = (token: Address, amount: bigint) =>
-    send("approve", () =>
-      writeContract({ address: token, abi: erc20Abi, functionName: "approve", args: [vault, amount] }),
-    );
+    send("approve", async () => {
+      const args = [vault, amount] as const;
+      const gas = account
+        ? await bufferedGas(client, { address: token, abi: erc20Abi, functionName: "approve", args, account })
+        : undefined;
+      writeContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: "approve",
+        args,
+        ...(gas === undefined ? {} : { gas }),
+      });
+    });
 
   /**
    * Quote the call again at the moment of the click, and take the floor from *that*.
@@ -431,6 +442,17 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
         args: zeroFloorArgs,
         account,
       } as never);
+      const args = withFloor((sim as { result: never }).result);
+
+      // An explicit limit with headroom; lib/gas.ts explains why the wallet's is not enough.
+      const gas = await bufferedGas(client, {
+        address: vault,
+        abi: vaultAbi,
+        functionName,
+        args,
+        account,
+      });
+
       reset();
       setPreflightError(null);
       setLastAction(action);
@@ -438,7 +460,8 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
         address: vault,
         abi: vaultAbi,
         functionName,
-        args: withFloor((sim as { result: never }).result),
+        args,
+        ...(gas === undefined ? {} : { gas }),
       } as never);
     } catch (e) {
       setPreflightError(e);
@@ -477,7 +500,17 @@ export default function VaultPage({ params }: { params: Promise<{ address: strin
     );
 
   const call = (action: LastAction, fn: string) =>
-    send(action, () => writeContract({ address: vault, abi: vaultAbi, functionName: fn }));
+    send(action, async () => {
+      const gas = account
+        ? await bufferedGas(client, { address: vault, abi: vaultAbi, functionName: fn, account })
+        : undefined;
+      writeContract({
+        address: vault,
+        abi: vaultAbi,
+        functionName: fn,
+        ...(gas === undefined ? {} : { gas }),
+      });
+    });
 
   const depositDisabled =
     !account ||

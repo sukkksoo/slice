@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAddress, zeroAddress, type Address } from "viem";
-import { useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  usePublicClient,
+  useReadContracts,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 
 import { Action, TxStatus, useNetworkGuard } from "@/components/tx";
 import { Badge, TokenAvatar } from "@/components/ui";
 import { targetChain } from "@/lib/chain";
 import { ARC, erc20Abi, factoryAbi, FACTORY_ADDRESS, onArc } from "@/lib/contracts";
+import { bufferedGas } from "@/lib/gas";
 import { poolId, stateViewAbi, unsafeHookPermissions, usdcPoolKey } from "@/lib/pool";
 
 /** A pool as the lookup reports it. */
@@ -40,6 +46,7 @@ type FoundPool = {
 export default function NewPoolPage() {
   const guard = useNetworkGuard();
   const account = guard.account;
+  const client = usePublicClient({ chainId: targetChain.id });
 
   const [token, setToken] = useState("");
   const [pools, setPools] = useState<FoundPool[]>([]);
@@ -134,16 +141,26 @@ export default function NewPoolPage() {
   const { writeContract, data: txHash, isPending, error: writeError, reset } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: txHash });
 
-  const create = useCallback(() => {
-    if (!key || !FACTORY_ADDRESS) return;
+  const create = useCallback(async () => {
+    if (!key || !FACTORY_ADDRESS || !account) return;
     reset();
+    // Listing a pool deploys a vault: ~4.2M gas, the heaviest call here by a wide margin, and
+    // therefore the one with most to lose from an estimate taken with no headroom. See lib/gas.ts.
+    const gas = await bufferedGas(client, {
+      address: FACTORY_ADDRESS as Address,
+      abi: factoryAbi,
+      functionName: "createVault",
+      args: [key],
+      account,
+    });
     writeContract({
       address: FACTORY_ADDRESS as Address,
       abi: factoryAbi,
       functionName: "createVault",
       args: [key],
+      ...(gas === undefined ? {} : { gas }),
     });
-  }, [key, writeContract, reset]);
+  }, [key, writeContract, reset, client, account]);
 
   return (
     <div className="space-y-8">

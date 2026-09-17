@@ -26,6 +26,7 @@ import { useVaults, type VaultSummary } from "@/hooks/useVaults";
 import { targetChain } from "@/lib/chain";
 import { vaultAbi } from "@/lib/contracts";
 import { formatAmount, formatSig, formatUsd, formatUsdCompact, shortAddress } from "@/lib/format";
+import { bufferedGas } from "@/lib/gas";
 import { withSlippage } from "@/lib/preview";
 import { explorerAddress, explorerTx } from "@/lib/tx";
 
@@ -199,18 +200,45 @@ export default function AccountPage() {
                         account,
                       } as never);
                       const [o0, o1] = (sim as { result: readonly [bigint, bigint] }).result;
+                      const wArgs = [
+                        v.userShares,
+                        withSlippage(o0, bps),
+                        withSlippage(o1, bps),
+                        account,
+                      ] as const;
+                      const gas = await bufferedGas(client, {
+                        address: v.address,
+                        abi: vaultAbi,
+                        functionName: "withdraw",
+                        args: wArgs,
+                        account,
+                      });
                       writeContract({
                         address: v.address,
                         abi: vaultAbi,
                         functionName: "withdraw",
-                        args: [v.userShares, withSlippage(o0, bps), withSlippage(o1, bps), account],
+                        args: wArgs,
+                        ...(gas === undefined ? {} : { gas }),
                       });
                     } catch (e) {
                       setPreflightError(e);
                     }
                     return;
                   }
-                  writeContract({ address: v.address, abi: vaultAbi, functionName: fn, args });
+                  const gas = await bufferedGas(client, {
+                    address: v.address,
+                    abi: vaultAbi,
+                    functionName: fn,
+                    args,
+                    account,
+                  });
+                  writeContract({
+                    address: v.address,
+                    abi: vaultAbi,
+                    functionName: fn,
+                    args,
+                    ...(gas === undefined ? {} : { gas }),
+                  });
                 }}
               />
             ))}
