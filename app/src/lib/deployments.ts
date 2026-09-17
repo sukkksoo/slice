@@ -14,8 +14,13 @@ export const DEPLOYMENTS: Record<number, { factory: Address; vaultDeployer: Addr
     factory: "0xc013A0a50A0841d1341EA85461431411DC4cb514",
     vaultDeployer: "0xFDfd46103A5D507827E59aa68247537657284c47",
   },
+  // Replaced 2026-09-17. The factory at 0x219DF226… produced vaults that could not accept a
+  // USDC-only deposit as their first one: the fee collection that follows the deposit's swap
+  // poked a Uniswap position the vault had not opened yet, which v4 refuses outright. Those three
+  // vaults are abandoned rather than migrated — the bug meant nobody ever got into them, so they
+  // hold nothing.
   [arc.id]: {
-    factory: "0x219DF226816e4CCcAAF8C7fAB7469837e857c05b",
-    vaultDeployer: "0x1782B001f635BE1f19BB4B5ef1B9E8F1d2e64759",
+    factory: "0x979889501A01aFc3264A87fC7e6cA54e659051D1",
+    vaultDeployer: "0x36A50a05E39295290876aD7a97d01E418c55374D",
   },
 };
