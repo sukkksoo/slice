@@ -22,7 +22,7 @@ import {BlocklistERC20} from "./mocks/BlocklistERC20.sol";
 ///
 ///   ARC_RPC_URL=https://rpc.mainnet.arc.io forge test --match-contract SingleSided -vv
 contract SingleSidedTest is Test {
-    LiquidityVault constant VAULT = LiquidityVault(0x23db9Eea0124a95Abd538BFc6BBe2add62be9a50);
+    LiquidityVault constant VAULT = LiquidityVault(0x9e4452De8B9ee8250e6f8EE7c086Cf4ebf908B27);
     address constant ARC101 = 0xac61f15a9E41B62c484EFcC5DBd57044E1793A8f;
 
     BlocklistERC20 usdc = BlocklistERC20(ArcChain.USDC_ERC20);
@@ -115,7 +115,7 @@ contract SingleSidedTest is Test {
 
     /// @notice The live CINU vault, whose price genuinely is dislocated, refuses the same call.
     function test_liveDislocatedPoolRefusesSingleSided() public onlyForked {
-        LiquidityVault cinu = LiquidityVault(0x54F81A153B02255E714d97E07F4f2F9a75FFA1A1);
+        LiquidityVault cinu = LiquidityVault(0x4E6026d7E5eA91Be62Df463D65054157C0373634);
 
         (bool warm, uint160 spot, uint160 twap) = cinu.prices();
         if (!warm || twap == 0) {

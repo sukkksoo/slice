@@ -14,13 +14,21 @@ export const DEPLOYMENTS: Record<number, { factory: Address; vaultDeployer: Addr
     factory: "0xc013A0a50A0841d1341EA85461431411DC4cb514",
     vaultDeployer: "0xFDfd46103A5D507827E59aa68247537657284c47",
   },
-  // Replaced 2026-09-17. The factory at 0x219DF226… produced vaults that could not accept a
-  // USDC-only deposit as their first one: the fee collection that follows the deposit's swap
-  // poked a Uniswap position the vault had not opened yet, which v4 refuses outright. Those three
-  // vaults are abandoned rather than migrated — the bug meant nobody ever got into them, so they
-  // hold nothing.
+  // Third factory, 2026-09-17. Two earlier ones are abandoned rather than migrated; neither ever
+  // held a share, so there was nothing to move.
+  //
+  //   0x219DF226…  Its vaults could not accept a USDC-only deposit as their first one. The fee
+  //                collection that follows the deposit's swap poked a Uniswap position the vault
+  //                had not opened yet, which v4 refuses outright. Every vault starts in that
+  //                state, so every vault turned away whoever tried to use it first.
+  //
+  //   0x97988950…  Its vaults cooled their own oracles. PoolOracle retained an observation on
+  //                every poke, into a ring of 32, and deposits, withdrawals and harvests all poke
+  //                — so a vault with traffic overwrote its own history inside the 30-minute TWAP
+  //                window and quietly stopped pricing swaps. Replaced while TVL was still zero,
+  //                because the failure arrives with success and the fix is a redeploy.
   [arc.id]: {
-    factory: "0x979889501A01aFc3264A87fC7e6cA54e659051D1",
-    vaultDeployer: "0x36A50a05E39295290876aD7a97d01E418c55374D",
+    factory: "0x9ABDd9Ba9C8Cb77e8676141c5bDa18fD107beD7D",
+    vaultDeployer: "0x32F0b8964B51E157Fb58AdF33fdA228Cf16476AF",
   },
 };

@@ -58,6 +58,31 @@ contract DeployedVaultTest is Test {
         _;
     }
 
+    /// @notice The deployed oracle does not cool when it is poked hard.
+    ///
+    /// The thing this redeploy existed for, checked against the bytecode on Arc rather than the
+    /// source here. Before MIN_SPACING every poke consumed one of 32 ring slots, so 32 calls
+    /// inside half an hour left the window short and `tryConsult` stopped answering — which a
+    /// busy vault did to itself, and two keepers did to a quiet one.
+    function test_liveOracleSurvivesHeavyPoking() public onlyForked {
+        for (uint256 i = 0; i < 34; i++) {
+            vault.poke();
+            vm.warp(block.timestamp + 90);
+        }
+        (bool warmBefore,,) = vault.prices();
+        assertTrue(warmBefore, "oracle did not warm in the first place");
+
+        // Forty pokes over twenty minutes: more than the ring holds, well inside the window.
+        for (uint256 i = 0; i < 40; i++) {
+            vm.warp(block.timestamp + 30);
+            vault.poke();
+        }
+
+        (bool warmAfter,,) = vault.prices();
+        console2.log("warm after 40 pokes in 20 minutes:", warmAfter);
+        assertTrue(warmAfter, "the deployed vault still cools itself when poked hard");
+    }
+
     /// @notice One dollar, USDC-only, into the empty vault that is live right now.
     function test_liveVaultAcceptsAFirstUsdcOnlyDeposit() public onlyForked {
         console2.log("vault    ", address(vault));

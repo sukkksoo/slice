@@ -36,7 +36,7 @@ contract MainnetRoundTripTest is Test {
     using StateLibrary for IPoolManager;
 
     /// @dev The vault deployed on 2026-09-16, on an Argus CINU/USDC pool.
-    LiquidityVault constant VAULT = LiquidityVault(0x54F81A153B02255E714d97E07F4f2F9a75FFA1A1);
+    LiquidityVault constant VAULT = LiquidityVault(0x4E6026d7E5eA91Be62Df463D65054157C0373634);
     address constant CINU = 0xBDBB76DB770cC99DCF3FA31C42C171b9584D6a10;
 
     IPoolManager manager = IPoolManager(ArcChain.POOL_MANAGER);

@@ -17,7 +17,7 @@
 set -euo pipefail
 
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
-FACTORY="${SLICE_FACTORY:-0x979889501A01aFc3264A87fC7e6cA54e659051D1}"
+FACTORY="${SLICE_FACTORY:-0x9ABDd9Ba9C8Cb77e8676141c5bDa18fD107beD7D}"
 BAND="${1:-500}"
 
 # Left at their deployed values; this script exists for the band. Passing them explicitly is
