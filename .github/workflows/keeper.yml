@@ -1,65 +1,118 @@
-# Keeps every Slice vault's price oracle warm on Arc mainnet.
+# Run the keeper on GitHub's machines instead of a laptop.
 #
-# WHY THIS IS A LONG-RUNNING JOB AND NOT A CRON
+# What it does
+# ------------
+# Every vault accumulates its own TWAP, and until the recorded observations span 30 minutes the
+# vault will not price an internal swap — so single-sided deposits revert and harvests defer the
+# token side of collected fees. `poke()` records one observation. Nothing about it is privileged:
+# poke and harvest are permissionless and neither lets the caller redirect a cent.
 #
-# The oracle needs observations roughly every 90 seconds: the ring holds 32, so a full ring spans
-# 31 intervals, and the vault will not price a swap until that span reaches 30 minutes. GitHub's
-# scheduler cannot run more often than every 5 minutes and routinely delays runs beyond that,
-# which would leave a 2.5-hour-plus averaging window — warm, but so far from spot that the vault's
-# 1% deviation band rejects most swaps anyway.
+# Why it is shaped like this
+# --------------------------
+# A scheduled workflow cannot run continuously, so each run holds the keeper open for most of an
+# hour and the schedule starts a fresh one. Three consequences worth knowing:
 #
-# So each run holds the loop open for ~5h45m and the schedule starts the next one as it finishes.
-# The gap between runs is under a minute, which the ring absorbs.
+#   - GitHub delays scheduled workflows under load, sometimes by many minutes, and occasionally
+#     skips one. That is survivable here and always has been in the safe direction: a gap makes
+#     the averaging window wider, never shorter, so the oracle stays warm and the TWAP simply
+#     lags spot a little more until the cadence recovers.
+#   - Two runs must never overlap. Before PoolOracle gained MIN_SPACING that halved the oracle's
+#     window and took every vault cold; it is harmless now, but it still spends gas twice for
+#     nothing. `concurrency` with cancel-in-progress leaves exactly one alive.
+#   - GitHub disables scheduled workflows in a repository with no activity for 60 days. If this
+#     repo goes quiet, the keeper stops with it. Re-enable from the Actions tab.
 #
-# COST: free on a public repository. On a private one this consumes roughly 24 hours of Actions
-# minutes per day, well past the free allowance — run it on a small VM instead.
+# Minutes
+# -------
+# This runs roughly 1,400 minutes a day. Actions minutes are unmetered on public repositories and
+# capped at 2,000 a month on a private one, so on a private repo this costs real money and a
+# small always-on box is cheaper. On a public repo it is free.
+#
+# Setup
+# -----
+#   1. Settings -> Secrets and variables -> Actions -> New repository secret
+#      Name: KEEPER_PRIVATE_KEY   Value: the keeper's private key
+#      Recover it with:  cast wallet decrypt-keystore slice-keeper
+#   2. Fund the keeper address on Arc. Gas is paid in USDC and this spends about 85 USDC a month
+#      across three vaults at 90 seconds. The job fails loudly below a day's worth.
+#   3. Stop the keeper on your laptop. One is the right number.
+
 name: keeper
 
 on:
   schedule:
-    # Every 6 hours. Each run covers 5h45m, so the next starts as the previous is winding down.
-    - cron: "0 */6 * * *"
+    # Hourly. Each run covers ~58 minutes, so the handover is near-seamless when GitHub is on time
+    # and merely a wider averaging window when it is not.
+    - cron: "0 * * * *"
   workflow_dispatch:
+    inputs:
+      minutes:
+        description: "How long this run should keep poking"
+        required: false
+        default: "58"
 
 concurrency:
-  # Never let two keepers run at once — they would spend gas racing each other to the same poke.
-  group: keeper
-  cancel-in-progress: false
+  group: slice-keeper
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   poke:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    # Above the 58 the keeper is given, so the job is ended by its own timeout rather than by
+    # GitHub cancelling it mid-transaction.
+    timeout-minutes: 65
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
-      - name: Run the keeper
+      - name: Check the keeper can pay for gas
+        env:
+          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "${PRIVATE_KEY:-}" ] || { echo "::error::KEEPER_PRIVATE_KEY is not set. See the header of this file."; exit 1; }
+          case "$PRIVATE_KEY" in 0x*) ;; *) PRIVATE_KEY="0x$PRIVATE_KEY";; esac
+          ADDR=$(cast wallet address --private-key "$PRIVATE_KEY")
+          BAL=$(cast balance "$ADDR" --rpc-url https://rpc.mainnet.arc.io)
+          echo "keeper $ADDR"
+          echo "balance ${BAL} (18dp native USDC)"
+          # Arc charges gas in USDC. Roughly 3 USDC a day at this cadence, so under 3 is under a
+          # day of runway — worth failing the job over, because the alternative is finding out
+          # when a vault has quietly stopped being able to price a deposit.
+          python3 - "$BAL" <<'PY'
+          import sys
+          bal = int(sys.argv[1])
+          print(f"::notice::keeper balance {bal/1e18:.2f} USDC")
+          if bal < 3 * 10**18:
+              print("::error::Under a day of gas left. Top up the keeper address on Arc.")
+              sys.exit(1)
+          PY
+
+      - name: Keep the oracles warm
         working-directory: contracts
         env:
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
-          ARC_RPC_URL: https://rpc.mainnet.arc.io
-          SLICE_FACTORY: "0x219DF226816e4CCcAAF8C7fAB7469837e857c05b"
           KEEPER_INTERVAL: "90"
+          ARC_RPC_URL: https://rpc.mainnet.arc.io
         run: |
-          if [ -z "$PRIVATE_KEY" ]; then
-            # Exit clean, not failing. This workflow ships with the repository and starts running
-            # on its schedule the moment it reaches the default branch, so before anyone has
-            # decided to run a keeper it should stand down quietly rather than post a red cross
-            # every six hours for something that is not broken.
-            echo "KEEPER_PRIVATE_KEY is not set, so there is nothing to do."
-            echo
-            echo "To start the keeper: Settings -> Secrets and variables -> Actions -> New"
-            echo "repository secret, named KEEPER_PRIVATE_KEY. Use a key holding nothing but gas."
-            echo "poke() and harvest() are permissionless and cannot redirect funds, so a leaked"
-            echo "keeper key costs the gas inside it and nothing else."
+          MINUTES="${{ github.event.inputs.minutes || '58' }}"
+          echo "Running the keeper for ${MINUTES} minutes."
+          set +e
+          timeout "${MINUTES}m" ./script/keeper.sh
+          code=$?
+          set -e
+          # 124 is `timeout` ending it, which is how this job is supposed to finish. Anything else
+          # is a real failure and should turn the run red.
+          if [ "$code" -eq 124 ] || [ "$code" -eq 0 ]; then
+            echo "Keeper ran to the end of its window."
             exit 0
           fi
-          chmod +x script/keeper.sh
-          # Leave a quarter of an hour of headroom under the job timeout so the run ends cleanly
-          # rather than being killed mid-transaction.
-          timeout 20700 ./script/keeper.sh || code=$?
-          # 124 is timeout's own exit code: the loop ran its full stint, which is success here.
-          if [ "${code:-0}" -ne 0 ] && [ "${code:-0}" -ne 124 ]; then exit "$code"; fi
+          echo "::error::Keeper exited with $code"
+          exit "$code"
