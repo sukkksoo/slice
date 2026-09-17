@@ -18,9 +18,11 @@
 # The oracle ring holds 32 observations, so a full ring spans only 31 intervals, and the TWAP
 # is taken over that whole span. Both ends of the range bite:
 #
-#   15s, 30s  ring spans under 30 minutes -> tryConsult never returns a price. The oracle
-#             stays cold forever, however long the keeper runs. Poking harder makes it worse.
-#   60s       32-minute window, and the tightest tracking of spot available.
+#   15s, 30s  On a vault deployed before PoolOracle gained MIN_SPACING, the ring spans under 30
+#             minutes and tryConsult never returns a price: the oracle stays cold forever,
+#             however long the keeper runs, and poking harder makes it worse. Newer vaults
+#             retain at most one observation a minute, so extra pokes cost gas and nothing else.
+#   60s       31-minute window, and the tightest tracking of spot available.
 #   90s       48-minute window.  <-- the default
 #   300s      155-minute window. Warm, but the vault compares spot against a 2.5-hour average,
 #             and with maxDeviationBps at 1% a volatile token sits outside the band most of
@@ -101,8 +103,10 @@ else
   : "${PRIVATE_KEY:?set PRIVATE_KEY, or KEEPER_ACCOUNT for a keystore}"
 fi
 
-# Below ~58s a full ring cannot span the 30-minute window, so the oracle would never warm.
-# Refuse rather than run a keeper that burns gas forever and unlocks nothing.
+# Below ~58s a full ring cannot span the 30-minute window on a vault deployed before PoolOracle
+# gained MIN_SPACING, so the oracle would never warm. Refuse rather than run a keeper that burns
+# gas forever and unlocks nothing. Kept even though newer vaults are immune, because the keeper
+# serves whatever the factory lists and has no way to know which is which.
 if [ "$INTERVAL" -lt 60 ]; then
   echo "KEEPER_INTERVAL=$INTERVAL is too short. The oracle ring holds 32 observations, so an"
   echo "interval under ~58s spans less than the 30-minute TWAP window and never warms."
@@ -291,8 +295,49 @@ if [ -z "$ADDR" ]; then
   exit 1
 fi
 
+# ONE KEEPER, NOT TWO
+#
+# Two keepers do not make the oracle warm faster — they stop it warming at all, and they do it
+# silently. Poking is what fills a ring of 32 observations, and `tryConsult` needs the ring to
+# span 30 minutes before it will price a swap. Two instances at 90 seconds each poke every 45,
+# so the same 32 slots cover 24 minutes instead of 48, and the vault reports its oracle as cold
+# forever while both keepers log healthy rounds and spend gas.
+#
+# That happened: a keeper left running in one window, a second started in another, and every
+# vault went from warm back to cold with nothing in either log to suggest why.
+#
+# So a second instance refuses to start. A stale lock from a keeper that was killed rather than
+# stopped is cleared automatically — the pid in it no longer exists.
+LOCK="${KEEPER_LOCK:-${TMPDIR:-/tmp}/slice-keeper-$(printf '%s' "$FACTORY" | tr 'A-Z' 'a-z').lock}"
+if [ -e "$LOCK" ]; then
+  OTHER=$(cat "$LOCK" 2>/dev/null || true)
+  if [ -n "$OTHER" ] && kill -0 "$OTHER" 2>/dev/null; then
+    echo "A keeper is already running for this factory (pid $OTHER)."
+    echo
+    echo "Running two halves the oracle's averaging window, which puts it under the 30 minutes"
+    echo "the vault needs and stops single-sided deposits working at all. Stop that one first,"
+    echo "or set KEEPER_LOCK to run a second deliberately against a different factory."
+    exit 1
+  fi
+  echo "Clearing a stale lock from pid ${OTHER:-unknown}."
+fi
+printf '%s' "$$" > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT INT TERM
+
 echo "keeper: factory $FACTORY on $RPC, every ${INTERVAL}s"
 echo "signer: $ADDR"
+
+# How long the ring will span once it fills, given the cadence actually achieved rather than the
+# one configured — a round takes time on top of the sleep, and anything else poking the same
+# vaults shortens the spacing further. Printed rather than assumed, because a ring that falls
+# short of 30 minutes produces no error anywhere: the oracle simply never warms.
+SPAN_MIN=$(( 31 * INTERVAL / 60 ))
+echo "ring: 32 observations, spanning about ${SPAN_MIN} min at this interval (needs > 30)"
+if [ "$SPAN_MIN" -lt 34 ]; then
+  echo "note: that is close to the 30-minute minimum. If anything else pokes these vaults the"
+  echo "      ring will fall short of it and the oracle will never warm. 90s leaves more room."
+fi
+
 round
 $ONCE && exit 0
 while true; do

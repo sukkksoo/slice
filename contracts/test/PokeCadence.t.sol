@@ -34,21 +34,44 @@ contract PokeCadenceTest is Test {
     ///      pokes that is 15.5 minutes — short of MIN_TWAP_WINDOW — and every older observation
     ///      has already been overwritten. The oracle never warms no matter how long it runs, which
     ///      is the opposite of what "poke more often to be safe" would lead a keeper to expect.
-    function test_pokingTooFastNeverWarms() public {
+    /// @notice Poking faster than the oracle retains is harmless, where it used to be fatal.
+    ///
+    /// This test used to assert the opposite, because the opposite was true: every poke consumed
+    /// a ring slot, so a caller at 30 or 15 seconds overwrote 32 slots well inside the 30-minute
+    /// window and `tryConsult` never answered again. That was not a hypothetical misconfiguration
+    /// — deposits, withdrawals and harvests all poke, so any vault with traffic did it to itself,
+    /// and a second keeper did it to a quiet one.
+    ///
+    /// PoolOracle.MIN_SPACING now puts a floor under how often an observation is retained. The
+    /// extra pokes still advance the accumulator, so they cost nothing in accuracy; they simply
+    /// do not spend a slot. Nobody can cool a vault's oracle by calling a permissionless function
+    /// too enthusiastically.
+    function test_pokingTooFastIsHarmless() public {
         (bool ok,) = _run(30, 200);
-        assertFalse(ok, "30s pokes should never satisfy a 30-minute window");
+        assertTrue(ok, "30s pokes should still warm: the extra ones are not retained");
 
         (ok,) = _run(15, 400);
-        assertFalse(ok, "15s pokes should never satisfy a 30-minute window");
+        assertTrue(ok, "15s pokes should still warm");
+
+        (ok,) = _run(1, 4_000);
+        assertTrue(ok, "even a poke a second should warm");
     }
 
     /// @notice Just above 58 seconds the full ring clears the window and the oracle warms.
-    function test_thresholdIsAboutOneMinute() public {
+    /// @notice The retained cadence is what sets the window, not the calling cadence.
+    ///
+    /// 58-second calls used to leave a full ring spanning 1798 seconds — two seconds short of the
+    /// window, and therefore permanently cold. With a spacing floor the retained gaps are at
+    /// least a minute whatever the caller does, so both of these warm.
+    function test_theWindowNoLongerDependsOnTheCallersCadence() public {
         (bool ok,) = _run(58, 200);
-        assertFalse(ok, "58s x 31 = 1798s, just under the window");
+        assertTrue(ok, "58s calls should warm now that retention is spaced independently");
 
         (ok,) = _run(60, 200);
-        assertTrue(ok, "60s x 31 = 1860s, just over");
+        assertTrue(ok, "60s x 31 = 1860s, comfortably over");
+
+        (ok,) = _run(300, 200);
+        assertTrue(ok, "a slow keeper still warms; the window is just wider");
     }
 
     /// @notice The averaging window grows with the interval, so a slow keeper averages over hours.

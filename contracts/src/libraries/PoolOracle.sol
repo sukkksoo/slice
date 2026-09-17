@@ -20,6 +20,14 @@ library PoolOracle {
     /// @notice Number of retained observations. 32 slots at, say, 5-minute pokes spans ~2.6h.
     uint256 internal constant CARDINALITY = 32;
 
+    /// @dev Shortest gap between two retained observations, in seconds.
+    ///
+    /// Sized against the vault's 30-minute window: a full ring has CARDINALITY - 1 = 31 gaps, so
+    /// 60 seconds guarantees a span of 31 minutes, just clear of it. Raising this widens the
+    /// averaging window and makes the TWAP lag spot further; lowering it below ~58 lets a full
+    /// ring fall short of 30 minutes, at which point the oracle can never warm at all.
+    uint32 internal constant MIN_SPACING = 60;
+
     struct Snapshot {
         uint32 timestamp;
         uint224 cumulative; // sum of sqrtPriceX96 * secondsHeld
@@ -69,6 +77,25 @@ library PoolOracle {
         self.lastSqrtPriceX96 = sqrtPriceX96;
 
         uint16 i = self.index;
+
+        // Retain an observation at most once per MIN_SPACING.
+        //
+        // The ring is a fixed 32 slots and `tryConsult` will not answer until they span the
+        // caller's window. Nothing rations who may add one — `poke` is permissionless by design,
+        // and deposit, withdraw, harvest and compound all poke on the way through. Without a floor
+        // here, a vault overwrites its own history by being used: 32 pokes inside half an hour
+        // leave the ring spanning less than the 30 minutes the vault asks for, `tryConsult` stops
+        // answering, and single-sided deposits and compounding shut off for a vault whose only
+        // crime was traffic. Twenty deposit-and-withdraw pairs were enough. Two keepers running at
+        // once did it to a quiet vault the same way.
+        //
+        // Nothing is lost by skipping the write. The accumulator above has already taken this
+        // price for the interval it was held, so the average stays exact to the second — a skipped
+        // poke simply does not spend a slot. What the floor buys is a guaranteed span: 31 gaps of
+        // at least a minute is at least 31 minutes, whoever is calling and however often.
+        uint32 lastRetained = self.ring[(uint256(i) + CARDINALITY - 1) % CARDINALITY].timestamp;
+        if (nowTs - lastRetained < MIN_SPACING) return;
+
         self.ring[i] = Snapshot({timestamp: nowTs, cumulative: next});
         self.index = uint16((uint256(i) + 1) % CARDINALITY);
         if (self.count < CARDINALITY) self.count = self.count + 1;
