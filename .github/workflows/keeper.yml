@@ -105,7 +105,10 @@ jobs:
           MINUTES="${{ github.event.inputs.minutes || '58' }}"
           echo "Running the keeper for ${MINUTES} minutes."
           set +e
-          timeout "${MINUTES}m" ./script/keeper.sh
+          # Invoked through bash rather than as ./script/keeper.sh, so it does not depend on the
+          # executable bit surviving the trip through a Windows checkout and into git's index.
+          # Without this the step dies instantly with "Permission denied" and exit 126.
+          timeout "${MINUTES}m" bash ./script/keeper.sh
           code=$?
           set -e
           # 124 is `timeout` ending it, which is how this job is supposed to finish. Anything else
