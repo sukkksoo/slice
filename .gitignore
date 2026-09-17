@@ -17,3 +17,6 @@ contracts/broadcast/
 app/probe*.mjs
 app/debug*.mjs
 app/d.mjs
+
+# Deploy run logs: useful locally, noise in the repo, and they grow one per run.
+contracts/redeploy-*.log
