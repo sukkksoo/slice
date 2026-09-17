@@ -50,7 +50,9 @@
 set -euo pipefail
 
 RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}"
-FACTORY="${SLICE_FACTORY:-0x219DF226816e4CCcAAF8C7fAB7469837e857c05b}"
+# Redeployed 2026-09-17; the previous factory's vaults could not take a first deposit. Pointing
+# the keeper at the old one would warm three oracles nobody can ever use.
+FACTORY="${SLICE_FACTORY:-0x979889501A01aFc3264A87fC7e6cA54e659051D1}"
 INTERVAL="${KEEPER_INTERVAL:-90}"
 # How many depositless vaults to keep warm anyway, so a newly listed pool is usable at once.
 MAX_EMPTY="${KEEPER_MAX_EMPTY:-3}"
