@@ -146,18 +146,44 @@ refresh_nonce() {
   [ -n "$NEXT_NONCE" ] || NEXT_NONCE=$(cast nonce "$ADDR" --rpc-url "$RPC" 2>/dev/null)
 }
 
+# Arc's public endpoint is load-balanced across nodes that do not always agree on the head block.
+# A request routed to one that is a block behind comes back as
+#
+#   error code -32602: request beyond head block: requested 21333789, head 21333788
+#
+# which says nothing about this keeper, this vault or this key — the same call succeeds a second
+# later against a node that has caught up. It is the same disagreement that made a createVault
+# look like it had failed when it had not. Untreated it drops roughly one poke in three, and since
+# the oracle needs 32 observations before it will price a swap, every dropped poke pushes the
+# whole warm-up further out.
+RPC_RACE="beyond head block|header not found|missing trie node|timeout|connection (closed|reset|refused)|502|503|504"
+RETRIES=3
+
 send() {
-  local status
+  local status attempt=0
   [ -n "$NEXT_NONCE" ] || refresh_nonce
 
-  LAST_OUT=$(cast send --async --nonce "$NEXT_NONCE" "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
-  status=$?
-
-  if [ $status -ne 0 ] && printf '%s' "$LAST_OUT" | grep -qiE "nonce too low|already known|replacement transaction"; then
-    refresh_nonce
+  while :; do
     LAST_OUT=$(cast send --async --nonce "$NEXT_NONCE" "$@" --rpc-url "$RPC" "${SIGNER[@]}" 2>&1)
     status=$?
-  fi
+    [ $status -eq 0 ] && break
+
+    attempt=$((attempt + 1))
+    [ "$attempt" -ge "$RETRIES" ] && break
+
+    if printf '%s' "$LAST_OUT" | grep -qiE "nonce too low|already known|replacement transaction"; then
+      # Something else spent from this key, or a send landed that we were told had failed. The
+      # local counter is wrong either way; re-read it and try the same call again.
+      refresh_nonce
+    elif printf '%s' "$LAST_OUT" | grep -qiE "$RPC_RACE"; then
+      # Nothing was submitted, so the nonce still stands. Wait for the laggard to catch up.
+      sleep 2
+    else
+      # A revert, an empty wallet, a wrong password: retrying burns gas and time and changes
+      # nothing. Let it surface.
+      break
+    fi
+  done
 
   if [ $status -eq 0 ]; then
     NEXT_NONCE=$((NEXT_NONCE + 1))
@@ -167,7 +193,29 @@ send() {
   fi
   return $status
 }
-call() { cast call "$@" --rpc-url "$RPC" 2>/dev/null | head -1 | sed 's/ \[.*//'; }
+
+# Reads race the same way, and a read that loses silently is worse than one that fails loudly: an
+# empty `prices()` reads as "not warm", so the log would report a warm vault as still warming and
+# the harvest it was due would be skipped.
+call() {
+  local out attempt=0
+  while :; do
+    # `if out=$(...)` rather than a bare assignment: the status has to be *tested* for `set -e`
+    # to leave it alone, and a plain assignment from a failing command is not a tested context.
+    if out=$(cast call "$@" --rpc-url "$RPC" 2>&1); then
+      printf '%s' "$out" | head -1 | sed 's/ \[.*//'
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge "$RETRIES" ] || ! printf '%s' "$out" | grep -qiE "$RPC_RACE"; then
+      # Print nothing and still succeed, which is what the original pipeline did by ending in
+      # `sed`. Callers read this as `warm=$(call ...)` — a plain assignment — so a non-zero
+      # status here would trip `set -e` and take the keeper down over a single bad read.
+      return 0
+    fi
+    sleep 1
+  done
+}
 
 # Poke a vault, then harvest it if its oracle can price the swap.
 service() {
