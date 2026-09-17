@@ -115,10 +115,12 @@ contract FirstDepositForkTest is Test {
         console2.log("actual shares   ", actual);
         assertGe(actual, floor50Bps, "the quoted floor rejected its own quote");
 
-        // And the floor the old panel would have sent, for the record: it showed 0.0001475 shares
-        // and insisted on 0.0001468. The call returns less than that, so it could never have
-        // succeeded — the contract bug was not the only thing standing in the way.
-        assertLt(actual, 146_800_000_000_000, "the old floor would have been clearable after all");
+        // The floor the old panel sent, for reference: it showed 0.0001475 shares and insisted on
+        // 0.0001468, against a call returning 0.0001461 at the time. Logged rather than asserted —
+        // this fork tracks the live pool, so whether today's price happens to clear a floor from
+        // last night says nothing about the code, and an assertion on it would fail on any day the
+        // token went up.
+        console2.log("the floor the old panel sent", uint256(146_800_000_000_000));
     }
 
     /// @notice One dollar, USDC-only, into an empty vault on the real ARC 101 pool.
@@ -177,9 +179,48 @@ contract FirstDepositForkTest is Test {
         assertGt(shares2, 0, "second deposit");
 
         // 3. A keeper round: poke, harvest, compound whatever that queued.
-        vault.poke();
+        //
+        // The oracle has to be allowed to catch up first. Both deposits swapped half their input,
+        // which moved spot away from an average taken before they existed, and a fresh vault
+        // starts with a 1% band — so compounding immediately is asking the vault to trade at a
+        // price it has every reason to distrust, and it declines. In production nothing arrives
+        // that fast: the keeper pokes every 60-90 seconds and the average absorbs the move long
+        // before anyone calls compound. Warping reproduces that rather than working around it.
+        _warmOracle();
         vault.harvest();
-        if (vault.pendingCompound() > 0) vault.compound();
+
+        // Compounding swaps, so it is subject to the same band as a single-sided deposit, and on a
+        // pool this thin the vault's own harvest swap can be what pushes spot off the average.
+        // Declining is a documented outcome, not a failure: the queue is left intact and the next
+        // attempt takes it. Asserting that it must succeed would be asserting that this launchpad
+        // pool is deep enough today, which is not a property of the code.
+        if (vault.pendingCompound() > 0) {
+            (, uint160 s, uint160 t) = vault.prices();
+            uint256 dev = s > t ? (uint256(s - t) * 10_000) / t : (uint256(t - s) * 10_000) / t;
+            console2.log("deviation before compound (bps)", dev);
+            console2.log("band (bps)", vault.maxDeviationBps());
+            console2.log("pendingCompound (usdc units)", vault.pendingCompound());
+
+            uint256 queued = vault.pendingCompound();
+            try vault.compound() returns (uint128 added) {
+                console2.log("compounded, liquidity added", added);
+            } catch (bytes memory err) {
+                // Two legitimate declines. PriceOutOfBand means the pool is dislocated and the
+                // vault will not trade into it. NothingToCompound means the queue is a single
+                // unit, which cannot be halved — it used to report itself as PriceOutOfBand,
+                // which is what sent this investigation looking at the oracle while the deviation
+                // sat at 0 bps.
+                bytes4 sel = bytes4(err);
+                assertTrue(
+                    sel == LiquidityVault.PriceOutOfBand.selector
+                        || sel == LiquidityVault.NothingToCompound.selector,
+                    "compound failed for a reason that is not one of its two legitimate declines"
+                );
+                assertEq(vault.pendingCompound(), queued, "a declined compound must keep the queue");
+                console2.log("compound declined cleanly, queue intact");
+                console2.logBytes4(sel);
+            }
+        }
 
         // 4. Claim whatever streamed.
         vm.warp(block.timestamp + 1 days);
@@ -200,6 +241,7 @@ contract FirstDepositForkTest is Test {
         // 6. And the vault still works afterwards, rather than being left in a state the next
         //    depositor cannot enter — which is exactly what went wrong the first time round.
         assertEq(vault.totalSupply(), vault.balanceOf(address(0xdead)), "only dead shares remain");
+        _warmOracle(); // for the same reason as above: the exits moved the price too
         vm.prank(staker);
         uint256 again = vault.depositUsdc(5e5, 0, staker);
         assertGt(again, 0, "vault could not be re-entered after everyone left");

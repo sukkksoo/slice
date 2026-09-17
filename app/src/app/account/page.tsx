@@ -6,6 +6,7 @@ import type { Address } from "viem";
 import {
   useBalance,
   useReadContract,
+  usePublicClient,
   useSimulateContract,
   useWaitForTransactionReceipt,
   useWriteContract,
@@ -75,6 +76,9 @@ export default function AccountPage() {
     };
   }, [account]);
 
+  const client = usePublicClient({ chainId: targetChain.id });
+  // A failure the click-time simulation caught, which never reached the wallet.
+  const [preflightError, setPreflightError] = useState<unknown>(null);
   const { writeContract, data: txHash, isPending, error, reset } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: txHash });
   const busy = isPending || receipt.isLoading;
@@ -178,8 +182,34 @@ export default function AccountPage() {
                 busy={busy}
                 guard={guard}
                 account={account}
-                onWrite={(fn, args) => {
+                onWrite={async (fn, args) => {
                   reset();
+                  setPreflightError(null);
+                  // "Unstake everything" carries a floor, and a floor is only worth what it was
+                  // quoted against. Taken at render it can be minutes old by the time the button
+                  // is pressed, which is what reverted a deposit on the vault page. Re-quote here
+                  // and let the simulation supply the minimums.
+                  if (fn === "withdraw" && client) {
+                    try {
+                      const sim = await client.simulateContract({
+                        address: v.address,
+                        abi: vaultAbi,
+                        functionName: "withdraw",
+                        args: [v.userShares, 0n, 0n, account],
+                        account,
+                      } as never);
+                      const [o0, o1] = (sim as { result: readonly [bigint, bigint] }).result;
+                      writeContract({
+                        address: v.address,
+                        abi: vaultAbi,
+                        functionName: "withdraw",
+                        args: [v.userShares, withSlippage(o0, bps), withSlippage(o1, bps), account],
+                      });
+                    } catch (e) {
+                      setPreflightError(e);
+                    }
+                    return;
+                  }
                   writeContract({ address: v.address, abi: vaultAbi, functionName: fn, args });
                 }}
               />
@@ -290,7 +320,7 @@ export default function AccountPage() {
         isPending={isPending}
         isConfirming={receipt.isLoading}
         isSuccess={receipt.isSuccess}
-        error={error}
+        error={preflightError ?? error}
         successLabel="Confirmed — your figures have been refreshed."
       />
     </div>

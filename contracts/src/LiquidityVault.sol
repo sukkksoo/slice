@@ -368,7 +368,10 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         nonReentrant
         returns (uint256 shares)
     {
-        if (usdcAmount == 0) revert ZeroAmount();
+        // Two, not one, for the same reason `compound` insists on two: half of this is swapped,
+        // and half of one unit is nothing. Caught here so the caller is told the amount is too
+        // small, rather than being told further down that the price is out of band when it is not.
+        if (usdcAmount < 2) revert ZeroAmount();
         _harvest();
 
         IERC20(Currency.unwrap(rewardCurrency)).safeTransferFrom(msg.sender, address(this), usdcAmount);
@@ -464,7 +467,13 @@ contract LiquidityVault is ERC20, IUnlockCallback, ReentrancyGuard {
         _harvest();
 
         uint256 amount = pendingCompound;
-        if (amount == 0) revert NothingToCompound();
+        // Two, not zero: compounding swaps half the queue, and `amount / 2` on a single unit is
+        // nothing to swap. `_trySwapExactIn` refuses a zero amount the same way it refuses a
+        // dislocated price — both return false — so `_onCompound` reported a queue of one micro
+        // USDC as `PriceOutOfBand`, with the deviation sitting at exactly 0 bps. The queue is
+        // untouched either way, but a caller told the price has drifted has been told the one
+        // thing guaranteed to send them looking in the wrong place.
+        if (amount < 2) revert NothingToCompound();
         pendingCompound = 0;
 
         bytes memory result = poolManager.unlock(abi.encode(Action.Compound, abi.encode(amount)));
